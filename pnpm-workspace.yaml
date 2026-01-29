@@ -1,0 +1,7 @@
+packages:
+  - "services/*"
+  - "packages/*"
+
+
+
+# use types,packages in between various services

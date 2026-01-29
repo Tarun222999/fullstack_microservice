@@ -1,0 +1,35 @@
+{
+    "name": "@chatapp/auth-service",
+    "version": "1.0.0",
+    "description": "",
+    "private": true,
+    "type": "module",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "scripts": {
+        "build": "tsc --project tsconfig.json ",
+        "dev": "tsx watch src/index.ts",
+        "start": "node dist/index.js",
+        "lint": "eslint \"src/**/*.ts\"",
+        "typecheck": "tsc --noEmit --project tsconfig.json",
+        "test": "echo \"No tests yet\"",
+        "format": "prettier --check \"src/**/*.ts\""
+    },
+    "keywords": [],
+    "author": "",
+    "license": "ISC",
+    "dependencies": {
+        "@chatapp/common": "workspace:*",
+        "express": "^5.1.0",
+        "dotenv": "^17.2.3"
+    },
+    "devDependencies": {
+        "@types/express": "^5.0.5",
+        "@types/node": "^20.0.0",
+        "typescript": "^5.0.0",
+        "tsx": "^4.0.0",
+        "tsc-alias": "^1.8.16",
+        "eslint": "^9.0.0",
+        "prettier": "^3.0.0"
+    }
+}
