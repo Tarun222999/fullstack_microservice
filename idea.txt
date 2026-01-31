@@ -1,0 +1,44 @@
+//buid the full project(microservice chat app)
+//create a next js ui to use this service
+//create a service mailchip written in go(provide a usecase for this)
+//build ci/cd for the project
+//try using cloudflare(cdn,wirefalls etc)
+//add monitoring and observbility
+//if possible use ai ~~~~(chat with ai)
+//unit tests and integration tests
+//elastic search
+
+//install pnpm
+//create pnpm workspace
+//install main packages
+//setup tsconfig
+//add specific packages like this pnpm add zod pino --filter common
+// create logger with pino 
+Due to Node's single-threaded event-loop, it's highly recommended that sending, alert triggering, reformatting, and all forms of log processing are conducted in a separate process or thread.
+
+In Pino terminology, we call all log processors "transports" and recommend that the transports be run in a worker thread using our pino.transport API.
+
+in many cases, Pino is over 5x faster than alternatives.
+
+//create utility env parser in common
+This env.ts file is a utility module for type-safe environment variable validation and parsing in your Node.js/TypeScript monorepo. Here's what it does:
+
+for ex:
+import { createEnv } from '@chatapp/common/src/env';
+import { z } from 'zod';
+
+const envSchema = z.object({
+  PORT: z.string().transform(Number),
+  DATABASE_URL: z.string().url(),
+});
+
+const env = createEnv(envSchema, { serviceName: 'auth' });
+// env is now typed: { PORT: number; DATABASE_URL: string; }
+
+pnpm --filter @chatapp/auth-service dev
+
+//shutdown gracefully --> process.on(siginit,shutdown)
+
+
+
+//request validations with zod
