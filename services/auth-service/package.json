@@ -23,7 +23,9 @@
         "cors": "^2.8.6",
         "dotenv": "^17.2.3",
         "express": "^5.1.0",
-        "helmet": "^8.1.0"
+        "helmet": "^8.1.0",
+        "mysql2": "^3.16.2",
+        "sequelize": "^6.37.7"
     },
     "devDependencies": {
         "@types/cors": "^2.8.19",

@@ -16,9 +16,9 @@ export const createEnv = <TSchema extends ZodRawShape>(
     const parsed = schema.safeParse(source)
 
     if (!parsed.success) {
-        const formatedErrors = parsed.error.format()
+        const formattedErrors = parsed.error.format()
         throw new Error(
-            `[${serviceName}] Environment variable validation failed: ${JSON.stringify(formatedErrors)}`
+            `[${serviceName}] Environment variable validation failed: ${JSON.stringify(formattedErrors)}`
         )
 
 

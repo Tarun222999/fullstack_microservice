@@ -2,10 +2,13 @@ import { createApp } from "./app"
 import { createServer } from "http"
 import { env } from "@/config/env"
 import { logger } from "@/utils/logger"
+import { connectToDatabase } from "@/db/sequilize"
 
 
 const main = async () => {
     try {
+
+        await connectToDatabase()
         const app = createApp()
 
         const server = createServer(app)
@@ -34,6 +37,7 @@ const main = async () => {
     } catch (error) {
 
         logger.error({ error }, "Failed to start auth service")
+        console.log(error)
         process.exit(1)
     }
 }

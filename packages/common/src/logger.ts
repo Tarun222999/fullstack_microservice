@@ -7,7 +7,7 @@ type CreateLoggerOptions = LoggerOptions & {
 }
 
 
-export const createLogger = (options: LoggerOptions): Logger => {
+export const createLogger = (options: CreateLoggerOptions): Logger => {
     const { name, ...rest } = options;
 
 
