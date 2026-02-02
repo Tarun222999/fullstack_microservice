@@ -1,3 +1,13 @@
+
+1.build main chat Backend(deploy) + add monitoring and obeservabilty here ??? ??also add unit testing and intergration testing
+2.build nextjs project with privacy/destructable chat(deploy)
+3.integreate main chat with privacy chat(deploy without breaking)
+4.add email notify service(backend +fe)(deploy without breaking)
+5.try adding ci/cd for the project
+ask gpt when is the correct time to add cloudflare also ci/cd 
+then think of ai-chat
+
+
 //buid the full project(microservice chat app)
 //create a next js ui to use this service
 //create a service mailchip written in go(provide a usecase for this)
@@ -7,6 +17,7 @@
 //if possible use ai ~~~~(chat with ai)
 //unit tests and integration tests
 //elastic search??
+//can u add a log service like splunk/opensearch or any better
 
 Global Search (Chats, Users, Groups)
 Problem
@@ -92,3 +103,7 @@ const envSchema = z.object({
 
 const env = createEnv(envSchema, { serviceName: 'auth' });
 // env is now typed: { PORT: number; DATABASE_URL: string; }
+
+
+//docker + mysql docker compose up -db
+//ceate volumes,network
