@@ -63,3 +63,15 @@ RefreshToken.init(
         tableName: "refresh_tokens",
     },
 );
+
+
+UserCredentials.hasMany(RefreshToken, {
+    foreignKey: "userId",
+    as: "refreshTokens",
+    onDelete: "CASCADE"
+})
+
+RefreshToken.belongsTo(UserCredentials, {
+    foreignKey: "userId",
+    as: "user"
+})
