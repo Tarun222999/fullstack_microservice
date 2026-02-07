@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { validateRequest } from "@chatapp/common";
 import { registerHandler } from "@/controller/auth.controller";
-import { registerSchema } from "./auth.schema";
+import { registerSchema } from "@/routes/auth.schema";
 
 
 

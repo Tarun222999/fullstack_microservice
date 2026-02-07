@@ -1,5 +1,5 @@
 
-1.build main chat Backend(deploy) + add monitoring and obeservabilty here ??? ??also add unit testing and intergration testing
+1.build main chat Backend(deploy) + add monitoring and obeservabilty here +distrubutive tracing??? ??also add unit testing and intergration testing
 2.build nextjs project with privacy/destructable chat(deploy)
 3.integreate main chat with privacy chat(deploy without breaking)
 4.add email notify service(backend +fe)(deploy without breaking)
@@ -12,12 +12,18 @@ then think of ai-chat
 //create a next js ui to use this service
 //create a service mailchip written in go(provide a usecase for this)
 //build ci/cd for the project
-//try using cloudflare(cdn,wirefalls etc)
+//try using cloudflare(loadbalancing,cdn,wirefalls etc)
 //add monitoring and observbility
 //if possible use ai ~~~~(chat with ai)
 //unit tests and integration tests
 //elastic search??
 //can u add a log service like splunk/opensearch or any better
+//connection pooling??? 
+//telemetry (data dog)????
+//webrtc or video call??(enable after payment)
+//videocall with ai????
+
+
 
 Global Search (Chats, Users, Groups)
 Problem
@@ -107,3 +113,23 @@ const env = createEnv(envSchema, { serviceName: 'auth' });
 
 //docker + mysql docker compose up -db
 //ceate volumes,network
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Great video, but strictly speaking, this isn't production-ready according to Richardson's Microservices Patterns. You have a critical Dual Write issue in the Auth Service: committing to the DB and then publishing to RabbitMQ separately creates a consistency risk if the process crashes. You need the Transactional Outbox pattern here. Also, a shared INTERNAL_API_TOKEN is a security vulnerability compared to mTLS, and you're missing Distributed Tracing (correlation IDs), which makes debugging impossible in prod. The shared library also creates tight coupling, effectively making this a distributed monolith.
