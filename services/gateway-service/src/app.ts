@@ -18,7 +18,7 @@ export const createApp = (): Application => {
     app.use(express.urlencoded({ extended: true }))
 
     registerRoutes(app)
-    app.use()
+
     app.use((_req, res) => {
         res.status(404).json({ message: "Not Found" })
     })

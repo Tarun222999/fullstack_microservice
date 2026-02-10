@@ -113,21 +113,41 @@ const env = createEnv(envSchema, { serviceName: 'auth' });
 
 //docker + mysql docker compose up -db
 //ceate volumes,network
+//rabbmitmq container
 
 
+rabbit mq learnings-->
 
+** create exchange and routing key
 
+producer -> broker -> consumer
 
+broker (exchange + queue)
 
+exchange (direct,routing,fan out)
 
+fanout -- all queues
+direct -- exact match between routing key and binding key
+topic  -- routes messages to queue based on pattern matching bw 
+          routing key and binding pattern
+Headers exchange: keys are ignored; headers decide routing.
 
+exchange decides which queues get the message based on the routing and binding key.
+routing key is used to determine where the messgae should go
+binding key is used to determine what message the quesr recieves
 
+A publisher sends a message with routing key app.log.info.
+Queue A has a binding key app.log.*.
+Queue B has a binding key app.*.error.
+The exchange matches app.log.info with app.log.*, so the message goes to Queue A. 
 
+If the routing key is app.log.error:
 
+It matches Queue A binding app.log.* (one word after app.log.).
+It also matches Queue B binding app.*.error (* can be log, and last word is error).
+So the message is delivered to both Queue A and Queue B (assuming a topic exchange).
 
-
-
-
+In a direct exchange, there’s no wildcard matching. The routing key must exactly equal the binding key.
 
 
 

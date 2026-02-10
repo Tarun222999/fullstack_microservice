@@ -4,6 +4,7 @@ import { env } from "@/config/env"
 import { logger } from "@/utils/logger"
 import { closeDatabase, connectToDatabase } from "@/db/sequilize"
 import { initModels } from "@/models"
+import { closePublisher, initPublisher } from "@/messaging/event-publishing"
 
 
 const main = async () => {
@@ -11,6 +12,7 @@ const main = async () => {
 
         await connectToDatabase()
         await initModels()
+        await initPublisher()
         const app = createApp()
 
         const server = createServer(app)
@@ -24,12 +26,11 @@ const main = async () => {
         const shutdown = () => {
             logger.info("Shutting down auth service")
 
-            Promise.all([closeDatabase()]).catch((error: unknown) => {
+            Promise.all([closeDatabase(), closePublisher()]).catch((error: unknown) => {
                 logger.error({ error }, "error during shutdown tasks")
+            }).finally(() => {
+                server.close(() => process.exit(0))
             })
-                .finally(() => {
-                    server.close(() => process.exit(0))
-                })
         }
 
 

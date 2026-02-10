@@ -16,7 +16,10 @@ export const createLogger = (options: CreateLoggerOptions): Logger => {
             target: "pino_pretty",
             options: {
                 colorize: true,
-                translateTime: "SYS:standard"
+                translateTime: "SYS:standard",
+                singleLine: false,
+                errorLikeObjectKeys: ["err", "error"],
+                messageKey: "msg"
             }
         } : undefined;
 

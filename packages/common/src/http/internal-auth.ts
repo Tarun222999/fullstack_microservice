@@ -22,6 +22,8 @@ export const createInternalAuthMiddleware = (
         }
         const provided = req.headers[headerName]
         const token = Array.isArray(provided) ? provided[0] : provided
+
+        console.log(provided, token)
         if (typeof token !== 'string' || token != expectedToken) {
             next(new HttpError(401, 'Unauthorized'))
             return
