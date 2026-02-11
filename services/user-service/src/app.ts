@@ -1,10 +1,11 @@
+import { errorHandler } from '@/middleware/error-handler';
 import express, { type Application } from "express";
 import cors from "cors"
-import helmet from "helmet";
-import { errorHandler } from "@/middleware/error-handler";
-import { registerRoutes } from "@/routes";
-import { env } from "./config/env";
-import { createInternalAuthMiddleware } from "@chatapp/common";
+import helmet from "helmet"
+import { createInternalAuthMiddleware } from '@chatapp/common';
+import { env } from '@/config/env';
+
+
 
 
 export const createApp = (): Application => {
@@ -23,8 +24,6 @@ export const createApp = (): Application => {
         }),
     );
 
-
-    registerRoutes(app)
     app.use((_req, res) => {
         res.status(404).json({ message: "Not Found" })
     })

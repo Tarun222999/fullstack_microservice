@@ -1,5 +1,5 @@
 
-1.build main chat Backend(deploy) + add monitoring and obeservabilty here +distrubutive tracing??? ??also add unit testing and intergration testing
+1.build main chat Backend(deploy) + add monitoring and obeservabilty here +distrubutive tracing??? ??also add unit testing and intergration testing + ci/cd
 2.build nextjs project with privacy/destructable chat(deploy)
 3.integreate main chat with privacy chat(deploy without breaking)
 4.add email notify service(backend +fe)(deploy without breaking)

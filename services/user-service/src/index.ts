@@ -2,24 +2,25 @@ import { createApp } from "./app"
 import { createServer } from "http"
 import { env } from "@/config/env"
 import { logger } from "@/utils/logger"
+import { initlializeDatabase } from "@/db/sequelize"
 
 
 const main = async () => {
     try {
-
+        await initlializeDatabase()
 
         const app = createApp()
 
         const server = createServer(app)
 
-        const port = env.GATEWAY__PORT
+        const port = env.USER_SERVICE_PORT
 
         server.listen(port, () => {
-            logger.info({ port }, 'Gateway service is running')
+            logger.info({ port }, 'User service is running')
         })
 
         const shutdown = () => {
-            logger.info("Shutting down gateway service")
+            logger.info("Shutting down User service")
 
             Promise.all([]).catch((error: unknown) => {
                 logger.error({ error }, "error during shutdown tasks")
@@ -35,7 +36,7 @@ const main = async () => {
 
     } catch (error) {
 
-        logger.error({ error }, "Failed to start gateway service")
+        logger.error({ error }, "Failed to start User service")
         console.log(error)
         process.exit(1)
     }

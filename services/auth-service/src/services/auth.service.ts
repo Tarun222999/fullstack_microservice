@@ -1,4 +1,5 @@
 import { sequelize } from "@/db/sequilize";
+import { publishingUserRegistered } from "@/messaging/event-publishing";
 import { RefreshToken, UserCredentials } from "@/models";
 import { AuthResponse, RegisterInput } from "@/types/auth";
 import { hashPassword, signAccessToken, signRefreshToken } from "@/utils/token";
@@ -47,7 +48,7 @@ export const register = async (input: RegisterInput): Promise<AuthResponse> => {
         }
 
         //publish event to bmq
-
+        publishingUserRegistered(userData)
         return {
             accessToken,
             refreshToken,

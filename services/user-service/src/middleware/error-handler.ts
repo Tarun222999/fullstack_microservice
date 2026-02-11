@@ -3,7 +3,7 @@ import type { ErrorRequestHandler } from "express"
 import { logger } from "@/utils/logger"
 
 export const errorHandler: ErrorRequestHandler = (err, req, res, _next) => {
-    logger.error({ err }, "Unhandler error occured at gateway-service")
+    logger.error({ err }, "Unhandler error occured at user-service")
 
     const error = err instanceof HttpError ? err : undefined
     const statusCode = error?.statusCode ?? 500
