@@ -3,12 +3,13 @@ import { createServer } from "http"
 import { env } from "@/config/env"
 import { logger } from "@/utils/logger"
 import { initlializeDatabase } from "@/db/sequelize"
+import { startAuthEventConsumer } from "@/messaging/auth-consumer"
 
 
 const main = async () => {
     try {
         await initlializeDatabase()
-
+        await startAuthEventConsumer()
         const app = createApp()
 
         const server = createServer(app)

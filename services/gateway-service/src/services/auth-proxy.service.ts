@@ -65,7 +65,7 @@ const resolvedMessage = (status: number, data: unknown): string => {
         : 'An error occurred while processing the request';
 }
 
-const handleAxiosErrror = (error: unknown): never => {
+const handleAxiosError = (error: unknown): never => {
     if (!axios.isAxiosError(error) || !error.response) {
         throw new HttpError(500, 'Authentications service is unavailable')
     }
@@ -82,8 +82,34 @@ export const authProxyService = {
 
             return response.data
         } catch (error) {
-            return handleAxiosErrror(error)
+            return handleAxiosError(error)
         }
-    }
+    },
+    async login(payload: LoginPayload): Promise<AuthTokens> {
+        try {
+            const response = await client.post<AuthTokens>('/auth/login', payload, authHeader);
+            return response.data;
+        } catch (error) {
+            return handleAxiosError(error);
+        }
+    },
+
+    async refresh(payload: RefreshPayload): Promise<AuthTokens> {
+        try {
+            const response = await client.post<AuthTokens>('/auth/refresh', payload, authHeader);
+            return response.data;
+        } catch (error) {
+            return handleAxiosError(error);
+        }
+    },
+
+    async revoke(payload: RevokePayload): Promise<void> {
+        try {
+            await client.post<void>('/auth/revoke', payload, authHeader);
+        } catch (error) {
+            return handleAxiosError(error);
+        }
+    },
+
 }
 

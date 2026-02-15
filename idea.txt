@@ -1,5 +1,5 @@
 
-1.build main chat Backend(deploy) + add monitoring and obeservabilty here +distrubutive tracing??? ??also add unit testing and intergration testing + ci/cd
+1.build main chat Backend(deploy) + add monitoring and obeservabilty here +distrubutive tracing??? ??also add unit testing and intergration testing + ci/cd +health check should be pull mode not push mode 
 2.build nextjs project with privacy/destructable chat(deploy)
 3.integreate main chat with privacy chat(deploy without breaking)
 4.add email notify service(backend +fe)(deploy without breaking)
@@ -22,8 +22,7 @@ then think of ai-chat
 //telemetry (data dog)????
 //webrtc or video call??(enable after payment)
 //videocall with ai????
-
-
+//try rewriting gateway service with fastify.
 
 Global Search (Chats, Users, Groups)
 Problem
