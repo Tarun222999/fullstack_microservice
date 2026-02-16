@@ -23,6 +23,7 @@ then think of ai-chat
 //webrtc or video call??(enable after payment)
 //videocall with ai????
 //try rewriting gateway service with fastify.
+//distrubuted chat service with tcp channels go.
 
 Global Search (Chats, Users, Groups)
 Problem
