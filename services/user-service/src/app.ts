@@ -4,8 +4,7 @@ import cors from "cors"
 import helmet from "helmet"
 import { createInternalAuthMiddleware } from '@chatapp/common';
 import { env } from '@/config/env';
-
-
+import { registerRoutes } from '@/routes';
 
 
 export const createApp = (): Application => {
@@ -23,6 +22,8 @@ export const createApp = (): Application => {
             exemptPaths: ['/health'],
         }),
     );
+
+    registerRoutes(app)
 
     app.use((_req, res) => {
         res.status(404).json({ message: "Not Found" })
