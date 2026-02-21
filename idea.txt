@@ -18,12 +18,13 @@ then think of ai-chat
 //unit tests and integration tests
 //elastic search??
 //can u add a log service like splunk/opensearch or any better
-//connection pooling??? 
+//connection pooling??? indexing??
 //telemetry (data dog)????
 //webrtc or video call??(enable after payment)
 //videocall with ai????
 //try rewriting gateway service with fastify.
 //distrubuted chat service with tcp channels go.
+//quorom mirroring rabbitmq so that even if one failes new instance can take it.
 
 Global Search (Chats, Users, Groups)
 Problem

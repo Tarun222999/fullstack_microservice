@@ -13,7 +13,7 @@ const parseAuthorizationHeader = (value: string | undefined): string => {
         throw new HttpError(401, 'Unauthorized')
     }
 
-    const [scheme, token] = value.split('')
+    const [scheme, token] = value.split(' ')
 
     if (scheme.toLowerCase() !== 'bearer' || !token) {
         throw new HttpError(401, 'Unauthorized')
@@ -42,6 +42,7 @@ export const requireAuth: RequestHandler = (req, _res, next) => {
         req.user = toAuthenticatedUser(claims)
         next()
     } catch (error) {
+
         if (error instanceof HttpError) {
             next(error)
             return
