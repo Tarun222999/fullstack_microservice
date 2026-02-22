@@ -9,6 +9,7 @@ const envSchema = z.object({
     INTERNAL_API_TOKEN: z.string().min(16),
     USER_SERVICE_URL: z.string().url(),
     JWT_SECRET: z.string().min(32),
+    CHAT_SERVICE_URL: z.string().url(),
 })
 
 type EnvType = z.infer<typeof envSchema>;

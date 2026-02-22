@@ -10,16 +10,19 @@ type CreateLoggerOptions = LoggerOptions & {
 export const createLogger = (options: CreateLoggerOptions): Logger => {
     const { name, ...rest } = options;
 
-
-    const transport = process.env.NODE_ENV === "devolopment"
+    const nodeEnv = (process.env.NODE_ENV ?? "").toLowerCase();
+    const usePrettyLogs = nodeEnv !== "production";
+    const transport = usePrettyLogs
         ? {
-            target: "pino_pretty",
+            target: "pino-pretty",
             options: {
                 colorize: true,
                 translateTime: "SYS:standard",
                 singleLine: false,
                 errorLikeObjectKeys: ["err", "error"],
-                messageKey: "msg"
+                messageKey: "msg",
+                errorProps: "*",
+                hideObject: false
             }
         } : undefined;
 

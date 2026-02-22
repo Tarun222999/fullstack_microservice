@@ -43,7 +43,7 @@ export const requireAuth: RequestHandler = (req, _res, next) => {
         req.user = toAuthenticatedUser(claims)
         next()
     } catch (error) {
-
+        console.log(error, "error")
         if (error instanceof HttpError) {
             next(error)
             return

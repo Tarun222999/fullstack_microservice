@@ -37,13 +37,15 @@ const toAuthenticatedUser = (claims: AccessTokenClaims): AuthenticatedUser => {
 
 export const requireAuth: RequestHandler = (req, _res, next) => {
     try {
+        console.log("here in required auth", req.headers.authorization)
         const token = parseAuthorizationHeader(req.headers.authorization)
         const claims = jwt.verify(token, env.JWT_SECRET) as AccessTokenClaims
         req.user = toAuthenticatedUser(claims)
         next()
     } catch (error) {
-
+        console.log("Error in required auth", error)
         if (error instanceof HttpError) {
+
             next(error)
             return
         }

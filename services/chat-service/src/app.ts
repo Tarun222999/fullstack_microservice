@@ -4,7 +4,7 @@ import helmet from 'helmet';
 import { errorHandler } from '@/middleware/error-handler';
 import { createInternalAuthMiddleware } from '@chatapp/common';
 import { env } from './config/env';
-// import { registerRoutes } from './routes';
+import { registerRoutes } from './routes';
 
 export const createApp = (): Application => {
     const app = express();
@@ -25,7 +25,7 @@ export const createApp = (): Application => {
         }),
     );
 
-    // registerRoutes(app);
+    registerRoutes(app);
 
     app.use((_req, res) => {
         res.status(404).json({ message: 'Not Found' });

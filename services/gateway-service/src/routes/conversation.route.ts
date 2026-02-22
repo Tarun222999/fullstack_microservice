@@ -1,34 +1,36 @@
+import { requireAuth } from '@/middleware/require-auth';
+import {
+    conversationIdParamsSchema,
+    createConversationBodySchema,
+    listConversationsQuerySchema,
+} from '@/validation/conversation.schema';
+import { Router } from 'express';
+import { validateRequest } from '@chatapp/common';
 import {
     createConversationHandler,
     createMessageHandler,
     getConversationHandler,
-    listConversationHandler,
-    listMessageHandler,
-} from '@/controllers/conversation.controller';
-import { attachAuthenticatedUser } from '@/middleware/authenticated-user';
-import {
-    createConversationSchema,
-    listConversationsQuerySchema,
-} from '@/validation/conversation.schema';
+    listConversationsHandler,
+    listMessagesHandler,
+} from '@/controller/conversation.controller';
 import { createMessageBodySchema, listMessagesQuerySchema } from '@/validation/message.schema';
-import { conversationIdParamsSchema } from '@/validation/shared.schema';
-import { validateRequest } from '@chatapp/common';
-import { Router } from 'express';
 
 export const conversationRouter: Router = Router();
 
-conversationRouter.use(attachAuthenticatedUser);
+conversationRouter.use(requireAuth);
 
 conversationRouter.post(
     '/',
-    validateRequest({ body: createConversationSchema }),
+    validateRequest({ body: createConversationBodySchema }),
     createConversationHandler,
 );
+
 conversationRouter.get(
     '/',
     validateRequest({ query: listConversationsQuerySchema }),
-    listConversationHandler,
+    listConversationsHandler,
 );
+
 conversationRouter.get(
     '/:id',
     validateRequest({ params: conversationIdParamsSchema }),
@@ -44,5 +46,5 @@ conversationRouter.post(
 conversationRouter.get(
     '/:id/messages',
     validateRequest({ params: conversationIdParamsSchema, query: listMessagesQuerySchema }),
-    listMessageHandler,
+    listMessagesHandler,
 );

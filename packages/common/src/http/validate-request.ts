@@ -9,6 +9,7 @@ type AnyZodObject = ZodObject<any>;
 type Schema = AnyZodObject | ZodTypeAny
 type ParamsRecord = Record<string, string>
 type QueryRecord = Record<string, unknown>
+type MutableObject = Record<string, unknown>
 
 export interface RequestValidationSchema {
     body?: Schema;
@@ -22,21 +23,48 @@ const formatedError = (error: ZodError): Array<{ path: string; message: string }
         message: issue.message
     }))
 
+const assignIfWritable = (
+    target: Request,
+    key: "body" | "params" | "query",
+    value: unknown,
+) => {
+    const mutableTarget = target as unknown as Record<string, unknown>
+
+    try {
+        // In some Express runtimes (notably query in v5), direct assignment can throw.
+        mutableTarget[key] = value
+    } catch {
+        const current = mutableTarget[key]
+        if (
+            current &&
+            typeof current === "object" &&
+            value &&
+            typeof value === "object"
+        ) {
+            const currentObject = current as MutableObject
+            for (const existingKey of Object.keys(currentObject)) {
+                delete currentObject[existingKey]
+            }
+            Object.assign(currentObject, value as MutableObject)
+        }
+    }
+}
+
 
 export const validateRequest = (schemas: RequestValidationSchema) => {
     return (req: Request, _res: Response, next: NextFunction) => {
         try {
             if (schemas.body) {
                 const parsedBody = schemas.body.parse(req.body) as unknown
-                req.body = parsedBody
+                assignIfWritable(req, "body", parsedBody)
             }
             if (schemas.params) {
                 const parsedParams = schemas.params.parse(req.params) as ParamsRecord
-                req.params = parsedParams as Request["params"]
+                assignIfWritable(req, "params", parsedParams as Request["params"])
             }
             if (schemas.query) {
                 const parsedQuery = schemas.query.parse(req.query) as QueryRecord
-                req.query = parsedQuery as Request["query"]
+                assignIfWritable(req, "query", parsedQuery as Request["query"])
             }
             next()
         } catch (error) {
