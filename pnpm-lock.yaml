@@ -35,9 +35,6 @@ importers:
 
   packages/common:
     dependencies:
-      '@types/express':
-        specifier: ^5.0.6
-        version: 5.0.6
       express:
         specifier: ^5.2.1
         version: 5.2.1
@@ -50,6 +47,13 @@ importers:
       zod:
         specifier: ^3.25.76
         version: 3.25.76
+    devDependencies:
+      '@types/express':
+        specifier: ^5.0.6
+        version: 5.0.6
+      tsc-alias:
+        specifier: ^1.8.16
+        version: 1.8.16
 
   services/auth-service:
     dependencies:
@@ -74,6 +78,9 @@ importers:
       helmet:
         specifier: ^8.1.0
         version: 8.1.0
+      jsonwebtoken:
+        specifier: ^9.0.3
+        version: 9.0.3
       mysql2:
         specifier: ^3.16.2
         version: 3.16.2
@@ -102,9 +109,6 @@ importers:
       eslint:
         specifier: ^9.0.0
         version: 9.39.2
-      jsonwebtoken:
-        specifier: ^9.0.3
-        version: 9.0.3
       prettier:
         specifier: ^3.0.0
         version: 3.8.1
@@ -120,6 +124,9 @@ importers:
 
   services/chat-service:
     dependencies:
+      '@chatapp/common':
+        specifier: workspace:^
+        version: link:../../packages/common
       amqplib:
         specifier: ^0.10.9
         version: 0.10.9
@@ -148,9 +155,6 @@ importers:
         specifier: ^4.8.3
         version: 4.8.3
     devDependencies:
-      '@chatapp/common':
-        specifier: workspace:^
-        version: link:../../packages/common
       '@types/amqplib':
         specifier: ^0.10.8
         version: 0.10.8
@@ -166,6 +170,9 @@ importers:
       '@types/jsonwebtoken':
         specifier: ^9.0.10
         version: 9.0.10
+      tsc-alias:
+        specifier: ^1.8.16
+        version: 1.8.16
 
   services/gateway-service:
     dependencies:
@@ -206,6 +213,9 @@ importers:
       '@types/jsonwebtoken':
         specifier: ^9.0.10
         version: 9.0.10
+      tsc-alias:
+        specifier: ^1.8.16
+        version: 1.8.16
 
   services/user-service:
     dependencies:
@@ -246,6 +256,9 @@ importers:
       '@types/helmet':
         specifier: ^4.0.0
         version: 4.0.0
+      tsc-alias:
+        specifier: ^1.8.16
+        version: 1.8.16
 
 packages:
 

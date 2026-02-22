@@ -7,7 +7,7 @@
     "main": "dist/index.js",
     "types": "dist/index.d.ts",
     "scripts": {
-        "build": "tsc --project tsconfig.json ",
+        "build": "tsc --project tsconfig.json && tsc-alias -p tsconfig.json --resolve-full-paths",
         "dev": "tsx watch src/index.ts",
         "start": "node dist/index.js",
         "lint": "eslint \"src/**/*.ts\"",
@@ -27,7 +27,8 @@
         "express": "^5.1.0",
         "helmet": "^8.1.0",
         "mysql2": "^3.16.2",
-        "sequelize": "^6.37.7"
+        "sequelize": "^6.37.7",
+        "jsonwebtoken": "^9.0.3"
     },
     "devDependencies": {
         "@types/amqplib": "^0.10.8",
@@ -37,7 +38,6 @@
         "@types/jsonwebtoken": "^9.0.10",
         "@types/node": "^20.0.0",
         "eslint": "^9.0.0",
-        "jsonwebtoken": "^9.0.3",
         "prettier": "^3.0.0",
         "tsc-alias": "^1.8.16",
         "tsx": "^4.0.0",
