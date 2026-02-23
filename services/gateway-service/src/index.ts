@@ -12,7 +12,7 @@ const main = async () => {
 
         const server = createServer(app)
 
-        const port = env.GATEWAY__PORT
+        const port = env.GATEWAY_PORT
 
         server.listen(port, () => {
             logger.info({ port }, 'Gateway service is running')
