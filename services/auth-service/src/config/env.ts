@@ -4,6 +4,7 @@ import { createEnv, z } from "@chatapp/common"
 
 const envSchema = z.object({
     NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
+    PORT: z.coerce.number().int().min(0).max(65_535).optional(),
     AUTH_SERVICE_PORT: z.coerce.number().int().min(0).max(65_535).default(4003),
     AUTH_DB_URL: z.string(),
     JWT_SECRET: z.string().min(32),
