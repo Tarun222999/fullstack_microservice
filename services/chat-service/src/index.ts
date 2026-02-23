@@ -13,7 +13,7 @@ const main = async () => {
         const app = createApp();
         const server = createServer(app);
 
-        const port = env.CHAT_SERVICE_PORT;
+        const port = env.PORT ?? env.CHAT_SERVICE_PORT;
 
         server.listen(port, () => {
             logger.info({ port }, 'Chat service is running');

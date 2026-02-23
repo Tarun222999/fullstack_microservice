@@ -16,7 +16,7 @@ const main = async () => {
 
         const server = createServer(app)
 
-        const port = env.USER_SERVICE_PORT
+        const port = env.PORT ?? env.USER_SERVICE_PORT
 
         server.listen(port, () => {
             logger.info({ port }, 'User service is running')

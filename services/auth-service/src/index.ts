@@ -17,7 +17,7 @@ const main = async () => {
 
         const server = createServer(app)
 
-        const port = env.AUTH_SERVICE_PORT
+        const port = env.PORT ?? env.AUTH_SERVICE_PORT
 
         server.listen(port, () => {
             logger.info({ port }, 'Auth service is running')
