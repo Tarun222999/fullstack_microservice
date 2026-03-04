@@ -118,7 +118,6 @@ export const chatProxyService = {
             });
             return response.data.data;
         } catch (error) {
-            console.log("error in list", error)
             return handleAxiosError(error);
         }
     },
