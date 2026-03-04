@@ -1,0 +1,148 @@
+Railway Deployment Guide - Fullstack Microservice
+
+Project overview
+----------------
+We deployed a multi-service architecture to Railway with:
+- App services:
+  1) gateway-service
+  2) auth-service
+  3) user-service
+  4) chat-service
+- Infra services:
+  1) PostgreSQL (user-service)
+  2) MySQL (auth-service)
+  3) MongoDB (chat-service)
+  4) Redis (chat-service)
+  5) RabbitMQ (eventing between services)
+
+Deployment model used
+---------------------
+- Monorepo with per-service Dockerfiles.
+- Each Railway app service points to:
+  - Root directory: .
+  - Dockerfile path:
+    - services/gateway-service/Dockerfile
+    - services/auth-service/Dockerfile
+    - services/user-service/Dockerfile
+    - services/chat-service/Dockerfile
+- Infra services created in the same Railway project for private networking.
+- Only gateway-service exposed publicly; all other services private/internal.
+
+Practices followed
+------------------
+1) Private networking first
+   - Used internal hostnames (*.railway.internal) for service-to-service communication.
+   - Avoided public proxy URLs for internal traffic.
+
+2) Environment variable discipline
+   - Defined service-specific env vars clearly per service.
+   - Kept shared secrets consistent:
+     - JWT_SECRET same where token generation/validation is required.
+     - INTERNAL_API_TOKEN same across internal services.
+   - Used explicit URLs:
+     - AUTH_SERVICE_URL
+     - USER_SERVICE_URL
+     - CHAT_SERVICE_URL
+     - AUTH_DB_URL
+     - USER_DB_URL
+     - MONGO_URL
+     - REDIS_URL
+     - RABBITMQ_URL
+
+3) Startup/dependency ordering
+   - Brought up infra first:
+     PostgreSQL, MySQL, MongoDB, Redis, RabbitMQ
+   - Then app backends:
+     auth-service, user-service, chat-service
+   - Gateway deployed last.
+
+4) Health-first deployment checks
+   - Standardized /health endpoint usage.
+   - Verified each service health before testing functional flows.
+
+5) Incremental smoke testing
+   - Validated gateway /health publicly.
+   - Then validated auth flow:
+     register -> login.
+   - Then validated protected routes:
+     /users and /conversations through gateway.
+   - Used logs in both gateway and downstream services for debugging.
+
+6) Troubleshooting approach used
+   - For “service unavailable” errors, checked:
+     - target service internal URL correctness
+     - matching internal token
+     - service listening port
+     - runtime logs in both caller and callee services
+   - Re-deployed services after env var corrections.
+
+Key env configuration examples
+------------------------------
+gateway-service
+- NODE_ENV=production
+- PORT=4000 (optional platform-provided)
+- GATEWAY__PORT=4000 (current code-compatible fallback)
+- AUTH_SERVICE_URL=http://auth-service.railway.internal:4003
+- USER_SERVICE_URL=http://user-service.railway.internal:4001
+- CHAT_SERVICE_URL=http://chat-service.railway.internal:4002
+- JWT_SECRET=<shared-secret>
+- INTERNAL_API_TOKEN=<shared-token>
+
+auth-service
+- NODE_ENV=production
+- PORT=4003
+- AUTH_SERVICE_PORT=4003
+- AUTH_DB_URL=mysql://<user>:<password>@mysql.railway.internal:3306/<database>
+- JWT_SECRET=<shared-secret>
+- JWT_REFRESH_SECRET=<refresh-secret>
+- INTERNAL_API_TOKEN=<shared-token>
+- RABBITMQ_URL=amqp://<user>:<password>@rabbitmq.railway.internal:5672
+
+user-service
+- NODE_ENV=production
+- PORT=4001
+- USER_SERVICE_PORT=4001
+- USER_DB_URL=postgresql://<user>:<password>@postgres.railway.internal:5432/<database>
+- INTERNAL_API_TOKEN=<shared-token>
+- RABBITMQ_URL=amqp://<user>:<password>@rabbitmq.railway.internal:5672
+
+chat-service
+- NODE_ENV=production
+- PORT=4002
+- CHAT_SERVICE_PORT=4002
+- MONGO_URL=mongodb://<user>:<password>@mongo.railway.internal:27017/<database>?authSource=admin
+- REDIS_URL=redis://default:<password>@redis.railway.internal:6379
+- RABBITMQ_URL=amqp://<user>:<password>@rabbitmq.railway.internal:5672
+- INTERNAL_API_TOKEN=<shared-token>
+- JWT_SECRET=<shared-secret>
+
+Verification checklist used
+---------------------------
+1) Gateway health:
+   GET /health -> 200
+
+2) Auth smoke flow:
+   POST /auth/register -> success
+   POST /auth/login -> access token received
+
+3) Protected route validation:
+   GET /users with Bearer token -> success
+   POST /conversations with Bearer token -> success
+
+4) Observability:
+   - No startup crashes in app service logs
+   - No connectivity failures to DB/cache/broker
+   - No internal auth mismatch errors
+
+Outcome
+-------
+- Architecture deployed successfully on Railway.
+- Internal networking, secret consistency, and staged verification were the key factors.
+- End-to-end gateway-driven flow validated.
+
+Recommended next improvements
+-----------------------------
+- Normalize gateway port env key naming to one canonical key.
+- Keep a single deployment variable matrix file for all services.
+- Add periodic smoke tests and alerting for /health endpoints.
+- Rotate and securely store all secrets after initial setup/testing.

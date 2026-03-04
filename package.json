@@ -7,7 +7,8 @@
     "dev": "pnpm -r --workspace-root=false run dev",
     "lint": "pnpm -r --workspace-root=false run lint",
     "format": "pnpm -r --workspace-root=false run format",
-    "test": "pnpm -r --workspace-root=false run test"
+    "test": "pnpm -r --workspace-root=false run test",
+    "test:all": "pnpm -r --workspace-root=false run test"
   },
   "keywords": [],
   "author": "",
