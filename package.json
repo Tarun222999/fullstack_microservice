@@ -8,7 +8,11 @@
     "lint": "pnpm -r --workspace-root=false run lint",
     "format": "pnpm -r --workspace-root=false run format",
     "test": "pnpm -r --workspace-root=false run test",
-    "test:all": "pnpm -r --workspace-root=false run test"
+    "test:all": "pnpm -r --workspace-root=false run test",
+    "test:db:user": "pnpm --filter @chatapp/user-service test:db",
+    "test:db:auth": "pnpm --filter @chatapp/auth-service test:db",
+    "test:db:chat": "pnpm --filter chat-service test:db",
+    "test:db:all-local": "pnpm test:db:user && pnpm test:db:auth && pnpm test:db:chat"
   },
   "keywords": [],
   "author": "",

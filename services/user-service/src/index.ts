@@ -40,7 +40,6 @@ const main = async () => {
     } catch (error) {
 
         logger.error({ error }, "Failed to start User service")
-        console.log(error)
         process.exit(1)
     }
 }

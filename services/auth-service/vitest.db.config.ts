@@ -4,11 +4,13 @@ import path from 'node:path';
 export default defineConfig({
     test: {
         environment: 'node',
-        include: ['src/**/*.test.ts'],
-        exclude: ['src/**/*.db.test.ts'],
+        include: ['src/**/*.db.test.ts'],
         globals: true,
         clearMocks: true,
-        setupFiles: ['src/test/setup-env.ts'],
+        setupFiles: ['src/test/setup-db-env.ts'],
+        testTimeout: 120000,
+        hookTimeout: 120000,
+        fileParallelism: false,
     },
     resolve: {
         alias: {

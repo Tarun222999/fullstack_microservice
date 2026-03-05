@@ -270,3 +270,22 @@ describe('messageService', () => {
 // mock the logic/imports of the code around the testing code
 // feed the mocks to resolve with a value 
 // call the function and check the expecation
+
+Quick explanation before I finalize:
+
+Why normal pattern fails
+Today, business data commits in DB, then event publish happens separately. If DB commit succeeds but Rabbit publish fails/crashes, state changes but no event is emitted. That creates cross-service inconsistency.
+
+What outbox fixes
+Write both business change + event record in the same DB transaction. A worker later publishes from outbox. If broker is down, event stays in DB and retries until published.
+
+Publish semantics
+
+At-least-once + dedupe: event may publish more than once; consumers ignore duplicates using eventId.
+At-least-once only: duplicates may cause repeated side effects.
+Exactly-once: expensive/complex in distributed systems.
+Rollout options
+
+Flagged dual-path: safest migration; feature flag controls cutover.
+Hard cutover: simpler, higher risk.
+Shadow mode: publish both temporarily to compare behavior.
