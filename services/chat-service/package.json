@@ -12,7 +12,9 @@
     "start": "node dist/index.js",
     "lint": "eslint \"src/**/*.ts\"",
     "typecheck": "tsc --noEmit --project tsconfig.json",
-    "test": "echo \"No tests yet\"",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:db": "vitest run --config vitest.db.config.ts",
     "format": "prettier --check \"src/**/*.ts\""
   },
   "keywords": [],
@@ -37,6 +39,8 @@
     "@types/express": "^5.0.6",
     "@types/helmet": "^4.0.0",
     "@types/jsonwebtoken": "^9.0.10",
-    "tsc-alias": "^1.8.16"
+    "testcontainers": "^10.28.0",
+    "tsc-alias": "^1.8.16",
+    "vitest": "^3.2.4"
   }
 }

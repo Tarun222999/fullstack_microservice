@@ -1,0 +1,9 @@
+process.env.NODE_ENV = 'test';
+process.env.DOTENV_CONFIG_PATH = '.env.test';
+process.env.AUTH_DB_URL ??= 'mysql://user:pass@localhost:3306/auth_test';
+process.env.JWT_SECRET ??= 'auth-service-test-jwt-secret-32-chars';
+process.env.JWT_REFRESH_SECRET ??= 'auth-service-test-refresh-secret-123';
+process.env.JWT_EXPIRES_IN ??= '1d';
+process.env.JWT_REFRESH_EXPIRES_IN ??= '30d';
+process.env.INTERNAL_API_TOKEN ??= 'auth-service-internal-token-123456';
+process.env.RABBITMQ_URL ??= 'amqp://guest:guest@localhost:5672';

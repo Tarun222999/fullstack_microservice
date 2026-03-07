@@ -60,7 +60,6 @@ export const startConsumers = async () => {
             const event = JSON.parse(payload) as UserCreatedEvent;
             await handleUserCreated(event);
             ch.ack(message);
-            console.log("consumed evemt")
         })().catch((error: unknown) => {
             logger.error({ err: error }, 'Failed to process event');
             ch.nack(message, false, false);

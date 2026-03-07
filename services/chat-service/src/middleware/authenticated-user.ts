@@ -7,8 +7,6 @@ export const attachAuthenticatedUser: RequestHandler = (req, _res, next) => {
     try {
         const headerValue = req.header(USER_ID_HEADER);
         const userId = userIdSchema.parse(headerValue);
-        console.log("userid in authenticate-user.ts", userId)
-        console.log("req.user before", req.user)
         req.user = { id: userId };
         next();
     } catch {

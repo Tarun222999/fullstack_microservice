@@ -37,7 +37,6 @@ export const listConversationHandler: RequestHandler = asyncHandler(async (req, 
     if (filter.participantId && filter.participantId !== user.id) {
         throw new HttpError(403, 'Unauthorized');
     }
-    console.log("user id in list", user.id)
     const conversations = await conversationService.listConversation({ participantId: user.id });
     res.status(201).json({ data: conversations });
 })
