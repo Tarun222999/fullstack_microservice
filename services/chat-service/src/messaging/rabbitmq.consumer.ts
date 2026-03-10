@@ -1,4 +1,10 @@
 import { env } from '@/config/env';
+import {
+    beginProcessingEvent,
+    ensureProcessedEventIndexes,
+    markFailedEvent,
+    markProcessedEvent,
+} from '@/repositories/processed-event.repository';
 import { userRepository } from '@/repositories/user.repository';
 import { logger } from '@/utils/logger';
 import {
@@ -22,6 +28,7 @@ let channel: Channel | null = null;
 let consumerTag: string | null = null;
 
 const EVENT_QUEUE = 'chat-service.user-events';
+const CONSUMER_NAME = 'chat-service.user-consumer';
 
 const closeAmqpConnection = async (conn: ChannelModel) => {
     await conn.close();
@@ -46,6 +53,7 @@ export const startConsumers = async () => {
 
     await ch.assertExchange(USER_EVENTS_EXCHANGE, 'topic', { durable: true });
     const queue = await ch.assertQueue(EVENT_QUEUE, { durable: true });
+    await ensureProcessedEventIndexes();
 
     await ch.bindQueue(queue.queue, USER_EVENTS_EXCHANGE, USER_CREATED_ROUTING_KEY);
 
@@ -58,8 +66,31 @@ export const startConsumers = async () => {
         void (async () => {
             const payload = message.content.toString('utf-8');
             const event = JSON.parse(payload) as UserCreatedEvent;
-            await handleUserCreated(event);
-            ch.ack(message);
+            const eventId = (event.metadata as { eventId?: string } | undefined)?.eventId;
+            if (!eventId) {
+                logger.warn({ eventType: event.type }, 'consumer.event_id_missing');
+                await handleUserCreated(event);
+                ch.ack(message);
+                return;
+            }
+
+            const beginResult = await beginProcessingEvent(eventId, event.type, CONSUMER_NAME);
+            if (beginResult !== 'acquired') {
+                logger.info({ eventId, beginResult }, 'consumer.duplicate');
+                ch.ack(message);
+                return;
+            }
+
+            try {
+                await handleUserCreated(event);
+                await markProcessedEvent(eventId);
+                logger.info({ eventId }, 'consumer.processed');
+                ch.ack(message);
+            } catch (error) {
+                await markFailedEvent(eventId, error);
+                logger.error({ err: error, eventId }, 'consumer.failed');
+                ch.nack(message, false, false);
+            }
         })().catch((error: unknown) => {
             logger.error({ err: error }, 'Failed to process event');
             ch.nack(message, false, false);

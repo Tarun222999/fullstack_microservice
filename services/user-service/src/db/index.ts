@@ -1,2 +1,5 @@
 export * from "./sequelize"
+export * from "./models"
 export * from "./models/user.model"
+export * from "./models/outbox-event.model"
+export * from "./models/processed-event.model"

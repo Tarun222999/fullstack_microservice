@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { HttpError } from '@chatapp/common';
 import { UniqueConstraintError } from 'sequelize';
 
@@ -14,9 +14,29 @@ const publisherMocks = vi.hoisted(() => ({
     publishUserCreatedEvent: vi.fn(),
 }));
 
+const dbMocks = vi.hoisted(() => ({
+    enqueueOutboxEvent: vi.fn(),
+    sequelize: {
+        transaction: vi.fn(),
+    },
+}));
+
+const envMocks = vi.hoisted(() => ({
+    OUTBOX_ENABLED: false,
+}));
+
 vi.mock('@/repository/user.repositories', () => ({
     UserRepository: vi.fn(),
     userRepository: repositoryMocks,
+}));
+
+vi.mock('@/config/env', () => ({
+    env: envMocks,
+}));
+
+vi.mock('@/db', () => ({
+    enqueueOutboxEvent: dbMocks.enqueueOutboxEvent,
+    sequelize: dbMocks.sequelize,
 }));
 
 vi.mock('@/messaging/event-publisher', () => ({
@@ -26,6 +46,12 @@ vi.mock('@/messaging/event-publisher', () => ({
 import { userService } from '@/services/user.service';
 
 describe('userService', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+        envMocks.OUTBOX_ENABLED = false;
+        (dbMocks.sequelize.transaction as ReturnType<typeof vi.fn>).mockImplementation(async (cb: any) => cb({}));
+    });
+
     it('returns user by id when found', async () => {
         const user = {
             id: '1e5c2af9-80c1-4d0b-bf56-c9b8ef49537d',
@@ -152,5 +178,49 @@ describe('userService', () => {
         expect(result).toEqual(syncedUser);
         expect(repositoryMocks.upsertFromAuthEvent).toHaveBeenCalledWith(payload);
         expect(publisherMocks.publishUserCreatedEvent).toHaveBeenCalledTimes(1);
+    });
+
+    it('createUser enqueues outbox event when outbox is enabled', async () => {
+        envMocks.OUTBOX_ENABLED = true;
+        const createdUser = {
+            id: 'f2271d11-46f1-490b-b137-1f5bfbf0ee7c',
+            email: 'new@example.com',
+            displayName: 'New User',
+            createdAt: new Date('2026-01-01T00:00:00.000Z'),
+            updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        };
+        repositoryMocks.create.mockResolvedValue(createdUser);
+
+        await userService.createUser({
+            email: 'new@example.com',
+            displayName: 'New User',
+        });
+
+        expect(dbMocks.sequelize.transaction).toHaveBeenCalledTimes(1);
+        expect(dbMocks.enqueueOutboxEvent).toHaveBeenCalledTimes(1);
+        expect(publisherMocks.publishUserCreatedEvent).not.toHaveBeenCalled();
+    });
+
+    it('syncFromAuthUser enqueues outbox event when outbox is enabled', async () => {
+        envMocks.OUTBOX_ENABLED = true;
+        const syncedUser = {
+            id: '7f17f8cb-68c7-4f94-8d84-e1e686cf2f63',
+            email: 'synced@example.com',
+            displayName: 'Synced',
+            createdAt: new Date('2026-01-01T00:00:00.000Z'),
+            updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        };
+        repositoryMocks.upsertFromAuthEvent.mockResolvedValue(syncedUser);
+
+        await userService.syncFromAuthUser({
+            id: syncedUser.id,
+            email: syncedUser.email,
+            displayName: syncedUser.displayName,
+            createdAt: syncedUser.createdAt.toISOString(),
+        });
+
+        expect(dbMocks.sequelize.transaction).toHaveBeenCalledTimes(1);
+        expect(dbMocks.enqueueOutboxEvent).toHaveBeenCalledTimes(1);
+        expect(publisherMocks.publishUserCreatedEvent).not.toHaveBeenCalled();
     });
 });

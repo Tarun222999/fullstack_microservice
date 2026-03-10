@@ -2,15 +2,18 @@ import { createApp } from "./app"
 import { createServer } from "http"
 import { env } from "@/config/env"
 import { logger } from "@/utils/logger"
-import { initlializeDatabase } from "@/db/sequelize"
-import { startAuthEventConsumer } from "@/messaging/auth-consumer"
-import { initMessaging } from "@/messaging/event-publisher"
+import { initModels } from "@/db/models"
+import { closeDatabase, initlializeDatabase } from "@/db/sequelize"
+import { startAuthEventConsumer, stopAuthEventConsume } from "@/messaging/auth-consumer"
+import { closeMessaging, initMessaging, startOutboxPublisher, stopOutboxPublisher } from "@/messaging/event-publisher"
 
 
 const main = async () => {
     try {
+        initModels()
         await initlializeDatabase()
         await initMessaging();
+        await startOutboxPublisher();
         await startAuthEventConsumer()
         const app = createApp()
 
@@ -25,7 +28,7 @@ const main = async () => {
         const shutdown = () => {
             logger.info("Shutting down User service")
 
-            Promise.all([]).catch((error: unknown) => {
+            Promise.all([stopAuthEventConsume(), stopOutboxPublisher(), closeMessaging(), closeDatabase()]).catch((error: unknown) => {
                 logger.error({ error }, "error during shutdown tasks")
             })
                 .finally(() => {

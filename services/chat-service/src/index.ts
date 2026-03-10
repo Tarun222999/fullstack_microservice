@@ -4,7 +4,7 @@ import { env } from '@/config/env';
 import { logger } from '@/utils/logger';
 import { closeMongoClient, getMongoClient } from '@/clients/mongo.client';
 import { closeRedis, connectRedis } from '@/clients/redis.client';
-import { startConsumers } from '@/messaging/rabbitmq.consumer';
+import { startConsumers, stopConsumers } from '@/messaging/rabbitmq.consumer';
 
 const main = async () => {
     try {
@@ -21,7 +21,7 @@ const main = async () => {
 
         const shutdown = () => {
             logger.info('Shutting down chat service...');
-            Promise.all([closeRedis(), closeMongoClient()])
+            Promise.all([stopConsumers(), closeRedis(), closeMongoClient()])
                 .catch((error: unknown) => {
                     logger.error({ error }, 'Error during shutdown tasks');
                 })

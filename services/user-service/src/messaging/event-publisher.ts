@@ -1,9 +1,11 @@
 import { USER_CREATED_ROUTING_KEY, USER_EVENTS_EXCHANGE } from "@chatapp/common";
 import amqplib from 'amqplib';
+import { Op } from "sequelize";
 
 import type { UserCreatedEvent, UserCreatedPayload } from '@chatapp/common';
 import type { Channel, ChannelModel, Connection } from 'amqplib';
 
+import { OutboxEvent } from "@/db";
 import { env } from '@/config/env';
 import { logger } from '@/utils/logger';
 
@@ -11,6 +13,8 @@ type ManagedConnection = Connection & Pick<ChannelModel, 'close' | 'createChanne
 
 let connection: ManagedConnection | null = null
 let channel: Channel | null = null
+let outboxTimer: NodeJS.Timeout | null = null
+const workerId = `user-outbox-${process.pid}-${Math.random().toString(36).slice(2, 10)}`
 
 
 const messagingEnabled = Boolean(env.RABBITMQ_URL);
@@ -77,6 +81,134 @@ export const closeMessaging = async () => {
     }
 };
 
+const publishOutboxRow = async (row: OutboxEvent) => {
+    const ch = await ensureChannel()
+    if (!ch) {
+        throw new Error('RabbitMQ channel is not initialized')
+    }
+    const rawEvent = JSON.parse(row.payloadJson) as { metadata?: Record<string, unknown> }
+    const eventWithId = {
+        ...rawEvent,
+        metadata: {
+            ...(rawEvent.metadata ?? {}),
+            eventId: row.id,
+        },
+    }
+
+    const success = ch.publish(
+        row.exchangeName,
+        row.routingKey,
+        Buffer.from(JSON.stringify(eventWithId)),
+        { contentType: 'application/json', persistent: true },
+    )
+    if (!success) {
+        throw new Error('Failed to publish outbox event')
+    }
+}
+
+const computeBackoffMs = (attempts: number) => Math.min(60_000, 1_000 * 2 ** Math.max(0, attempts - 1))
+
+const processOutboxBatch = async () => {
+    if (!env.OUTBOX_ENABLED) {
+        return
+    }
+
+    const now = new Date()
+    const staleCutoff = new Date(now.getTime() - env.OUTBOX_LOCK_TIMEOUT_MS)
+    const candidates = await OutboxEvent.findAll({
+        where: {
+            [Op.or]: [
+                {
+                    status: { [Op.in]: ['pending', 'failed'] },
+                    [Op.or]: [{ nextAttemptAt: null }, { nextAttemptAt: { [Op.lte]: now } }],
+                },
+                {
+                    status: 'processing',
+                    lockedAt: { [Op.lte]: staleCutoff },
+                },
+            ],
+        },
+        order: [['createdAt', 'ASC']],
+        limit: env.OUTBOX_BATCH_SIZE,
+    })
+
+    for (const row of candidates) {
+        const [claimed] = await OutboxEvent.update(
+            { status: 'processing', lockedAt: new Date(), lockedBy: workerId },
+            {
+                where: {
+                    id: row.id,
+                    [Op.or]: [
+                        { status: { [Op.in]: ['pending', 'failed'] } },
+                        { status: 'processing', lockedAt: { [Op.lte]: staleCutoff } },
+                    ],
+                },
+            },
+        )
+        if (claimed === 0) {
+            continue
+        }
+
+        try {
+            await publishOutboxRow(row)
+            await OutboxEvent.update(
+                {
+                    status: 'published',
+                    publishedAt: new Date(),
+                    lockedAt: null,
+                    lockedBy: null,
+                    lastError: null,
+                },
+                { where: { id: row.id } },
+            )
+        } catch (error) {
+            const attempts = row.attempts + 1
+            const shouldDeadLetter = attempts >= env.OUTBOX_MAX_ATTEMPTS
+            await OutboxEvent.update(
+                {
+                    status: shouldDeadLetter ? 'dead' : 'failed',
+                    attempts,
+                    nextAttemptAt: shouldDeadLetter
+                        ? null
+                        : new Date(Date.now() + computeBackoffMs(attempts)),
+                    lockedAt: null,
+                    lockedBy: null,
+                    lastError: error instanceof Error ? error.message : String(error),
+                },
+                { where: { id: row.id } },
+            )
+        }
+    }
+}
+
+const pollOutbox = async () => {
+    try {
+        await processOutboxBatch()
+    } catch (error) {
+        logger.error({ err: error }, 'Failed processing user outbox batch')
+    }
+}
+
+export const startOutboxPublisher = async () => {
+    if (!env.OUTBOX_ENABLED || outboxTimer) {
+        return
+    }
+
+    outboxTimer = setInterval(() => {
+        void pollOutbox()
+    }, env.OUTBOX_POLL_INTERVAL_MS)
+    await pollOutbox()
+    logger.info('User outbox publisher started')
+}
+
+export const stopOutboxPublisher = async () => {
+    if (!outboxTimer) {
+        return
+    }
+    clearInterval(outboxTimer)
+    outboxTimer = null
+}
+
 export const publishUserCreatedEvent = async (payload: UserCreatedPayload) => {
     const ch = await ensureChannel()
 
@@ -90,7 +222,7 @@ export const publishUserCreatedEvent = async (payload: UserCreatedPayload) => {
         type: USER_CREATED_ROUTING_KEY,
         payload,
         occuredAt: new Date().toISOString(),
-        metadata: { version: 1 }
+        metadata: { version: 1, eventId: crypto.randomUUID() } as Record<string, unknown>
     }
 
     try {

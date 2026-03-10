@@ -3,6 +3,7 @@
 Jaeger
 Prometheus
 Grafana)here +distrubutive tracing??? ??also add unit testing and intergration testing
+ + coderabbit + arcject + 
 2.build nextjs project with privacy/destructable chat(deploy)
 3.integreate main chat with privacy chat(deploy without breaking)
 (in main chat let the user go the private chat with minimal steps)
@@ -16,10 +17,12 @@ then think of ai-chat
 //create a next js ui to use this service
 AES-GCM (Advanced Encryption Standard with Galois/Counter Mode) is a high-performance, 
 authenticated symmetric encryption algorithm providing both confidentiality and data integrity.
+//seo
+
 
 //create a service mailchip written in go(provide a usecase for this)
 //build ci/cd for the project(CI/CD deployment endpoints,GitHub Actions → Cloudflare mTLS → Deploy API)
-//try using cloudflare(loadbalancing,cdn,waf,mlts,bot check etc)
+//try using cloudflare(loadbalancing,cdn,waf,mlts,bot check ,ratelimit etc)
 //add monitoring and observbility
 //if possible use ai ~~~~(chat with ai)
 //unit tests and integration tests
@@ -30,8 +33,8 @@ authenticated symmetric encryption algorithm providing both confidentiality and 
 //webrtc or video call??(enable after payment)
 //videocall with ai????
 //there is a news system and people can open and participate in a
-discussion thread.(distributed chat app pages)
-
+discussion thread.
+//video sharing with mux
 
 //so as we not deploy the system all time we can do something like 
 //user enters email he will get a opp up saying sory for incovenice will start the system for you and you will get an email to test app.
@@ -173,119 +176,3 @@ Result → ciphertext + auth tag
 3.1 this will in return give cypher text
 3.2 now on getting the cypher text use the same key to decrypt
 
-
-
-//vi-test buit closely to jest
-//unit testing
-//describe, it, toHaveBeCalledWith,expected
-
-vi is Vitest’s utility object (like Jest’s jest), used for mocking and spying.
-
-Common vi APIs:
-
-vi.fn() creates a mock function
-vi.mock() mocks a module
-vi.spyOn() spies on existing methods
-vi.hoisted() creates values that must exist before vi.mock is evaluated
-You wrote vi.hosted in your question; the correct one is vi.hoisted.
-
-Why vi.hoisted is used
-vi.mock(...) is hoisted to the top by Vitest.
-So if your mock object is declared normally below, it may not exist when the mock factory runs.
-
-vi.hoisted(() => ({ ... })) guarantees those mock refs are created early enough for module mocking.
-
-import { describe, expect, it, vi } from 'vitest';
-import { HttpError } from '@chatapp/common';
-
-const messageRepositoryMocks = vi.hoisted(() => ({
-    create: vi.fn(),
-    findByConversation: vi.fn(),
-}));
-
-const conversationServiceMocks = vi.hoisted(() => ({
-    getConversationById: vi.fn(),
-    touchConversation: vi.fn(),
-}));
-
-vi.mock('@/repositories/message.repository', () => ({
-    messageRepository: messageRepositoryMocks,
-}));
-
-vi.mock('@/services/conversation.service', () => ({
-    conversationService: conversationServiceMocks,
-}));
-
-import { messageService } from '@/services/message.service';
-
-describe('messageService', () => {
-    it('creates message when sender is a participant', async () => {
-        conversationServiceMocks.getConversationById.mockResolvedValue({
-            id: '7af7345f-5419-47f1-b1a3-f25e31e0f1e4',
-            title: 'Dev chat',
-            participantIds: [
-                'dc40ca49-b0f2-4b27-a771-5fda47d1d66f',
-                '936cf6c1-be78-4192-9c77-8f44a84ff6ea',
-            ],
-            createdAt: new Date('2026-01-01T00:00:00.000Z'),
-            updatedAt: new Date('2026-01-01T00:00:00.000Z'),
-            lastMessageAt: null,
-            lastMessagePreview: null,
-        });
-
-        const createdMessage = {
-            id: 'dcaf983e-2ab0-42ec-bf50-d7af5f344dbf',
-            conversationId: '7af7345f-5419-47f1-b1a3-f25e31e0f1e4',
-            senderId: 'dc40ca49-b0f2-4b27-a771-5fda47d1d66f',
-            body: 'Hello team',
-            createdAt: new Date('2026-01-01T00:01:00.000Z'),
-            reactions: [],
-        };
-        messageRepositoryMocks.create.mockResolvedValue(createdMessage);
-        conversationServiceMocks.touchConversation.mockResolvedValue(undefined);
-
-        const result = await messageService.createMessage(
-            '7af7345f-5419-47f1-b1a3-f25e31e0f1e4',
-            'dc40ca49-b0f2-4b27-a771-5fda47d1d66f',
-            'Hello team',
-        );
-
-        expect(result).toEqual(createdMessage);
-        expect(messageRepositoryMocks.create).toHaveBeenCalledWith(
-            '7af7345f-5419-47f1-b1a3-f25e31e0f1e4',
-            'dc40ca49-b0f2-4b27-a771-5fda47d1d66f',
-            'Hello team',
-        );
-        expect(conversationServiceMocks.touchConversation).toHaveBeenCalledWith(
-            '7af7345f-5419-47f1-b1a3-f25e31e0f1e4',
-            'Hello team',
-        );
-    });
-
-}
-
-//ideally a test case should be like
-
-
-// mock the logic/imports of the code around the testing code
-// feed the mocks to resolve with a value 
-// call the function and check the expecation
-
-Quick explanation before I finalize:
-
-Why normal pattern fails
-Today, business data commits in DB, then event publish happens separately. If DB commit succeeds but Rabbit publish fails/crashes, state changes but no event is emitted. That creates cross-service inconsistency.
-
-What outbox fixes
-Write both business change + event record in the same DB transaction. A worker later publishes from outbox. If broker is down, event stays in DB and retries until published.
-
-Publish semantics
-
-At-least-once + dedupe: event may publish more than once; consumers ignore duplicates using eventId.
-At-least-once only: duplicates may cause repeated side effects.
-Exactly-once: expensive/complex in distributed systems.
-Rollout options
-
-Flagged dual-path: safest migration; feature flag controls cutover.
-Hard cutover: simpler, higher risk.
-Shadow mode: publish both temporarily to compare behavior.

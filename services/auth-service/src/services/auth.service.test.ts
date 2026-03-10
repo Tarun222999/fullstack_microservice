@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { HttpError } from '@chatapp/common';
 
 const sequelizeMocks = vi.hoisted(() => ({
@@ -21,6 +21,7 @@ const modelMocks = vi.hoisted(() => ({
         create: vi.fn(),
         destroy: vi.fn(),
     },
+    enqueueOutboxEvent: vi.fn(),
 }));
 
 const tokenMocks = vi.hoisted(() => ({
@@ -35,6 +36,10 @@ const publisherMocks = vi.hoisted(() => ({
     publishingUserRegistered: vi.fn(),
 }));
 
+const envMocks = vi.hoisted(() => ({
+    OUTBOX_ENABLED: false,
+}));
+
 const loggerMocks = vi.hoisted(() => ({
     warn: vi.fn(),
 }));
@@ -46,6 +51,7 @@ vi.mock('@/db/sequilize', () => ({
 vi.mock('@/models', () => ({
     UserCredentials: modelMocks.UserCredentials,
     RefreshToken: modelMocks.RefreshToken,
+    enqueueOutboxEvent: modelMocks.enqueueOutboxEvent,
 }));
 
 vi.mock('@/utils/token', () => ({
@@ -60,6 +66,10 @@ vi.mock('@/messaging/event-publishing', () => ({
     publishingUserRegistered: publisherMocks.publishingUserRegistered,
 }));
 
+vi.mock('@/config/env', () => ({
+    env: envMocks,
+}));
+
 vi.mock('@/utils/logger', () => ({
     logger: loggerMocks,
 }));
@@ -67,7 +77,45 @@ vi.mock('@/utils/logger', () => ({
 import { login, refreshTokens, register, revokeRefreshToken } from '@/services/auth.service';
 
 describe('auth.service', () => {
+    beforeEach(() => {
+        envMocks.OUTBOX_ENABLED = false;
+        vi.clearAllMocks();
+    });
+
+    it('register enqueues outbox event when outbox is enabled', async () => {
+        envMocks.OUTBOX_ENABLED = true;
+        sequelizeMocks.transaction.mockResolvedValue(transactionMocks);
+        modelMocks.UserCredentials.findOne.mockResolvedValue(null);
+        tokenMocks.hashPassword.mockResolvedValue('hashed-password');
+        modelMocks.UserCredentials.create.mockResolvedValue({
+            id: 'a1f9e448-cc0c-4adf-b8b8-f27d16b8ca14',
+            email: 'new@example.com',
+            displayName: 'New User',
+            createdAt: new Date('2026-01-01T00:00:00.000Z'),
+        });
+        modelMocks.RefreshToken.create.mockResolvedValue({
+            id: 'c8ea7e24-8a58-40e1-ac40-f5bb42d0cae9',
+            tokenId: 'c8ea7e24-8a58-40e1-ac40-f5bb42d0cae9',
+            userId: 'a1f9e448-cc0c-4adf-b8b8-f27d16b8ca14',
+            expiresAt: new Date('2026-02-01T00:00:00.000Z'),
+        });
+        tokenMocks.signAccessToken.mockReturnValue('access-token');
+        tokenMocks.signRefreshToken.mockReturnValue('refresh-token');
+
+        await register({
+            email: 'new@example.com',
+            password: 'Password123!',
+            displayName: 'New User',
+        });
+
+        expect(modelMocks.enqueueOutboxEvent).toHaveBeenCalledTimes(1);
+        expect(modelMocks.enqueueOutboxEvent.mock.calls[0][1]).toBe(transactionMocks);
+        expect(publisherMocks.publishingUserRegistered).not.toHaveBeenCalled();
+        envMocks.OUTBOX_ENABLED = false;
+    });
+
     it('registers user, commits transaction, and publishes event', async () => {
+        envMocks.OUTBOX_ENABLED = false;
         sequelizeMocks.transaction.mockResolvedValue(transactionMocks);
         modelMocks.UserCredentials.findOne.mockResolvedValue(null);
         tokenMocks.hashPassword.mockResolvedValue('hashed-password');
