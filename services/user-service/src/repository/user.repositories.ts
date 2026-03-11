@@ -1,4 +1,4 @@
-import { Op, type WhereOptions } from 'sequelize';
+import { Op, Transaction, type WhereOptions } from 'sequelize';
 
 import type { CreateUserInput, User } from '@/types/user';
 import type { AuthUserRegisteredPayload } from '@chatapp/common';
@@ -29,8 +29,8 @@ export class UserRepository {
         return users.map(toDomainUser)
     }
 
-    async create(data: CreateUserInput): Promise<User> {
-        const user = await UserModel.create(data)
+    async create(data: CreateUserInput, transaction?: Transaction): Promise<User> {
+        const user = await UserModel.create(data, { transaction })
         return toDomainUser(user)
     }
 
@@ -61,7 +61,7 @@ export class UserRepository {
     }
 
 
-    async upsertFromAuthEvent(payload: AuthUserRegisteredPayload): Promise<User> {
+    async upsertFromAuthEvent(payload: AuthUserRegisteredPayload, transaction?: Transaction): Promise<User> {
         const [user] = await UserModel.upsert(
             {
                 id: payload.id,
@@ -69,7 +69,8 @@ export class UserRepository {
                 displayName: payload.displayName,
                 createdAt: new Date(payload.createdAt),
                 updatedAt: new Date(payload.createdAt),
-            }
+            },
+            { transaction },
         )
 
         return toDomainUser(user)

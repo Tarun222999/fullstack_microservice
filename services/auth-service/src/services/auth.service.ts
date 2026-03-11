@@ -1,13 +1,13 @@
 import { sequelize } from "@/db/sequilize";
+import { env } from "@/config/env";
 import { publishingUserRegistered } from "@/messaging/event-publishing";
-import { RefreshToken, UserCredentials } from "@/models";
+import { enqueueOutboxEvent, RefreshToken, UserCredentials } from "@/models";
 import { AuthResponse, AuthTokens, LoginInput, RegisterInput } from "@/types/auth";
 import { logger } from "@/utils/logger";
 import { hashPassword, signAccessToken, signRefreshToken, verifyPassword, verifyRefreshToken } from "@/utils/token";
 import { HttpError } from "@chatapp/common";
 import { Op, Transaction } from "sequelize";
-
-
+import { AUTH_EVENT_EXCHANGE, AUTH_USER_REGISTERED_ROUTING_KEY } from "@chatapp/common";
 
 const REFRESH_TOKEN_TTL_DAYS = 30;
 export const register = async (input: RegisterInput): Promise<AuthResponse> => {
@@ -33,6 +33,37 @@ export const register = async (input: RegisterInput): Promise<AuthResponse> => {
         )
         const refreshTokenRecord = await createRefreshToken(user.id, transaction)
 
+        const userData = {
+            id: user.id,
+            email: user.email,
+            displayName: user.displayName,
+            createdAt: user.createdAt.toISOString()
+        }
+        if (env.OUTBOX_ENABLED) {
+            const eventId = crypto.randomUUID();
+
+            await enqueueOutboxEvent(
+                {
+                    eventType: AUTH_USER_REGISTERED_ROUTING_KEY,
+                    exchangeName: AUTH_EVENT_EXCHANGE,
+                    routingKey: AUTH_USER_REGISTERED_ROUTING_KEY,
+                    payload: {
+                        eventId,
+                        type: AUTH_USER_REGISTERED_ROUTING_KEY,
+                        payload: userData,
+                        occuredAt: new Date().toISOString(),
+                        metadata: { version: 1, eventId },
+                    },
+                    metadata: {
+                        eventId,
+                        aggregateType: 'user',
+                        aggregateId: user.id,
+                    },
+                },
+                transaction,
+            )
+        }
+
         await transaction.commit()
 
         const accessToken = signAccessToken({ sub: user.id, email: user.email })
@@ -41,15 +72,9 @@ export const register = async (input: RegisterInput): Promise<AuthResponse> => {
             tokenId: refreshTokenRecord.id
         })
 
-        const userData = {
-            id: user.id,
-            email: user.email,
-            displayName: user.displayName,
-            createdAt: user.createdAt.toISOString()
+        if (!env.OUTBOX_ENABLED) {
+            publishingUserRegistered(userData)
         }
-
-        //publish event to bmq
-        publishingUserRegistered(userData)
         return {
             accessToken,
             refreshToken,

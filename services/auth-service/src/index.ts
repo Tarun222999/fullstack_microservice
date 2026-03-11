@@ -4,7 +4,7 @@ import { env } from "@/config/env"
 import { logger } from "@/utils/logger"
 import { closeDatabase, connectToDatabase } from "@/db/sequilize"
 import { initModels } from "@/models"
-import { closePublisher, initPublisher } from "@/messaging/event-publishing"
+import { closePublisher, initPublisher, startOutboxPublisher, stopOutboxPublisher } from "@/messaging/event-publishing"
 
 
 const main = async () => {
@@ -13,6 +13,7 @@ const main = async () => {
         await connectToDatabase()
         await initModels()
         await initPublisher()
+        await startOutboxPublisher()
         const app = createApp()
 
         const server = createServer(app)
@@ -23,19 +24,32 @@ const main = async () => {
             logger.info({ port }, 'Auth service is running')
         })
 
-        const shutdown = () => {
+        const shutdown = async () => {
             logger.info("Shutting down auth service")
 
-            Promise.all([closeDatabase(), closePublisher()]).catch((error: unknown) => {
+            let hasErrors = false;
+            try {
+                await stopOutboxPublisher();
+            } catch (error) {
+                hasErrors = true;
+                logger.error({ error }, "error stopping outbox publisher");
+            }
+
+            await Promise.all([closeDatabase(), closePublisher()]).catch((error: unknown) => {
+                hasErrors = true;
                 logger.error({ error }, "error during shutdown tasks")
             }).finally(() => {
-                server.close(() => process.exit(0))
+                server.close(() => process.exit(hasErrors ? 1 : 0))
             })
         }
 
 
-        process.on("SIGINT", shutdown)
-        process.on("SIGTERM", shutdown)
+        process.on("SIGINT", () => {
+            void shutdown()
+        })
+        process.on("SIGTERM", () => {
+            void shutdown()
+        })
 
     } catch (error) {
 

@@ -18,6 +18,7 @@ import {
 import { env } from '@/config/env';
 import { logger } from '@/utils/logger';
 import { userService } from "@/services/user.service";
+import { beginProcessingEvent, markFailedEvent, markProcessedEvent } from "@/messaging/consumer-idempotency";
 
 type ManageConnection = Connection & ChannelModel
 
@@ -26,6 +27,7 @@ let channel: Channel | null = null
 let consumerTag: string | null = null
 
 const QUEUE_NAME = 'auth-service.auth-events';
+const CONSUMER_NAME = "user-service.auth-consumer";
 
 
 const closeConnection = async (conn: ManageConnection) => {
@@ -38,8 +40,38 @@ const closeConnection = async (conn: ManageConnection) => {
 const handleMessage = async (message: ConsumeMessage, ch: Channel) => {
     const raw = message.content.toString('utf-8')
     const event = JSON.parse(raw) as AuthRegisteredEvent
-    await userService.syncFromAuthUser(event.payload)
-    ch.ack(message)
+    const eventId = (event.metadata as { eventId?: string } | undefined)?.eventId;
+
+    if (!eventId) {
+        logger.warn({ eventType: event.type }, "consumer.event_id_missing");
+        await userService.syncFromAuthUser(event.payload);
+        ch.ack(message);
+        return;
+    }
+
+    const beginResult = await beginProcessingEvent(eventId, event.type, CONSUMER_NAME);
+    if (beginResult !== "acquired") {
+        logger.info({ eventId, beginResult }, "consumer.duplicate");
+        if (beginResult === "duplicate") {
+            ch.ack(message);
+        }
+        return;
+    }
+
+    try {
+        await userService.syncFromAuthUser(event.payload);
+        await markProcessedEvent(eventId);
+        logger.info({ eventId }, "consumer.processed");
+        ch.ack(message);
+    } catch (error) {
+        try {
+            await markFailedEvent(eventId, error);
+        } catch (markError) {
+            logger.error({ err: markError, eventId }, "consumer.mark_failed_error");
+        }
+        logger.error({ err: error, eventId }, "consumer.failed");
+        ch.nack(message, false, false);
+    }
 }
 
 export const startAuthEventConsumer = async () => {

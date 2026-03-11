@@ -10,14 +10,16 @@ const envSchema = z.object({
     JWT_SECRET: z.string().min(32),
     RABBITMQ_URL: z.string().url(),
     REDIS_URL: z.string().url(),
-    MONGO_URL: z.string().url()
+    MONGO_URL: z.string().url(),
+    CONSUMER_DEDUPE_ENABLED: z.coerce.boolean().default(true),
+    CONSUMER_LOCK_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(600_000).default(30_000),
 })
 
 type EnvType = z.infer<typeof envSchema>;
 
 
 export const env: EnvType = createEnv(envSchema, {
-    serviceName: 'gateway-service'
+    serviceName: 'chat-service'
 })
 
 export type Env = typeof env

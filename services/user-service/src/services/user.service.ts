@@ -1,7 +1,10 @@
+import { env } from "@/config/env";
+import { enqueueOutboxEvent, sequelize } from "@/db";
 import { publishUserCreatedEvent } from "@/messaging/event-publisher";
 import { userRepository, UserRepository } from "@/repository/user.repositories";
 import { CreateUserInput, User } from "@/types/user";
-import { AuthUserRegisteredPayload, HttpError } from "@chatapp/common";
+import { AuthUserRegisteredPayload, HttpError, USER_CREATED_ROUTING_KEY, USER_EVENTS_EXCHANGE } from "@chatapp/common";
+import { logger } from "@/utils/logger";
 import { UniqueConstraintError } from "sequelize";
 
 
@@ -20,16 +23,61 @@ class UserService {
 
     async createUser(input: CreateUserInput): Promise<User> {
         try {
-            const user = await this.repository.create(input)
+            if (!env.OUTBOX_ENABLED) {
+                const user = await this.repository.create(input)
+                try {
+                    await publishUserCreatedEvent({
+                        id: user.id,
+                        email: user.email,
+                        displayName: user.displayName,
+                        createdAt: user.createdAt.toISOString(),
+                        updatedAt: user.updatedAt.toISOString(),
+                    });
+                } catch (error) {
+                    logger.warn(
+                        {
+                            err: error,
+                            userId: user.id,
+                            email: user.email,
+                            displayName: user.displayName,
+                        },
+                        "user.created publish failed in non-outbox mode",
+                    );
+                }
+                return user
+            }
 
-            void publishUserCreatedEvent({
-                id: user.id,
-                email: user.email,
-                displayName: user.displayName,
-                createdAt: user.createdAt.toISOString(),
-                updatedAt: user.updatedAt.toISOString(),
-            });
-            return user
+            return sequelize.transaction(async (transaction) => {
+                const user = await this.repository.create(input, transaction)
+                const payload = {
+                    type: USER_CREATED_ROUTING_KEY,
+                    payload: {
+                        id: user.id,
+                        email: user.email,
+                        displayName: user.displayName,
+                        createdAt: user.createdAt.toISOString(),
+                        updatedAt: user.updatedAt.toISOString(),
+                    },
+                    occurredAt: new Date().toISOString(),
+                    occuredAt: new Date().toISOString(),
+                    metadata: { version: 1 },
+                }
+                await enqueueOutboxEvent(
+                    {
+                        eventType: USER_CREATED_ROUTING_KEY,
+                        exchangeName: USER_EVENTS_EXCHANGE,
+                        routingKey: USER_CREATED_ROUTING_KEY,
+                        payload,
+                        metadata: {
+                            aggregateType: 'user',
+                            aggregateId: user.id,
+                        },
+                    },
+                    transaction,
+                )
+
+                return user
+            })
         } catch (error) {
             if (error instanceof UniqueConstraintError) {
                 throw new HttpError(409, 'User already Exists')
@@ -58,15 +106,60 @@ class UserService {
     }
 
     async syncFromAuthUser(payload: AuthUserRegisteredPayload): Promise<User> {
-        const user = await this.repository.upsertFromAuthEvent(payload)
-        void publishUserCreatedEvent({
-            id: user.id,
-            email: user.email,
-            displayName: user.displayName,
-            createdAt: user.createdAt.toISOString(),
-            updatedAt: user.updatedAt.toISOString(),
-        });
-        return user
+        if (!env.OUTBOX_ENABLED) {
+            const user = await this.repository.upsertFromAuthEvent(payload)
+            try {
+                await publishUserCreatedEvent({
+                    id: user.id,
+                    email: user.email,
+                    displayName: user.displayName,
+                    createdAt: user.createdAt.toISOString(),
+                    updatedAt: user.updatedAt.toISOString(),
+                });
+            } catch (error) {
+                logger.warn(
+                    {
+                        err: error,
+                        userId: user.id,
+                        email: user.email,
+                        displayName: user.displayName,
+                    },
+                    "user.created publish failed in non-outbox mode",
+                );
+            }
+            return user
+        }
+
+        return sequelize.transaction(async (transaction) => {
+            const user = await this.repository.upsertFromAuthEvent(payload, transaction)
+            const eventPayload = {
+                type: USER_CREATED_ROUTING_KEY,
+                payload: {
+                    id: user.id,
+                    email: user.email,
+                    displayName: user.displayName,
+                    createdAt: user.createdAt.toISOString(),
+                    updatedAt: user.updatedAt.toISOString(),
+                },
+                occurredAt: new Date().toISOString(),
+                occuredAt: new Date().toISOString(),
+                metadata: { version: 1 },
+            }
+            await enqueueOutboxEvent(
+                {
+                    eventType: USER_CREATED_ROUTING_KEY,
+                    exchangeName: USER_EVENTS_EXCHANGE,
+                    routingKey: USER_CREATED_ROUTING_KEY,
+                    payload: eventPayload,
+                    metadata: {
+                        aggregateType: 'user',
+                        aggregateId: user.id,
+                    },
+                },
+                transaction,
+            )
+            return user
+        })
     }
 }
 
