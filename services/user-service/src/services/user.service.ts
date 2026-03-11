@@ -4,6 +4,7 @@ import { publishUserCreatedEvent } from "@/messaging/event-publisher";
 import { userRepository, UserRepository } from "@/repository/user.repositories";
 import { CreateUserInput, User } from "@/types/user";
 import { AuthUserRegisteredPayload, HttpError, USER_CREATED_ROUTING_KEY, USER_EVENTS_EXCHANGE } from "@chatapp/common";
+import { logger } from "@/utils/logger";
 import { UniqueConstraintError } from "sequelize";
 
 
@@ -24,13 +25,25 @@ class UserService {
         try {
             if (!env.OUTBOX_ENABLED) {
                 const user = await this.repository.create(input)
-                void publishUserCreatedEvent({
-                    id: user.id,
-                    email: user.email,
-                    displayName: user.displayName,
-                    createdAt: user.createdAt.toISOString(),
-                    updatedAt: user.updatedAt.toISOString(),
-                });
+                try {
+                    await publishUserCreatedEvent({
+                        id: user.id,
+                        email: user.email,
+                        displayName: user.displayName,
+                        createdAt: user.createdAt.toISOString(),
+                        updatedAt: user.updatedAt.toISOString(),
+                    });
+                } catch (error) {
+                    logger.warn(
+                        {
+                            err: error,
+                            userId: user.id,
+                            email: user.email,
+                            displayName: user.displayName,
+                        },
+                        "user.created publish failed in non-outbox mode",
+                    );
+                }
                 return user
             }
 
@@ -45,6 +58,7 @@ class UserService {
                         createdAt: user.createdAt.toISOString(),
                         updatedAt: user.updatedAt.toISOString(),
                     },
+                    occurredAt: new Date().toISOString(),
                     occuredAt: new Date().toISOString(),
                     metadata: { version: 1 },
                 }
@@ -94,13 +108,25 @@ class UserService {
     async syncFromAuthUser(payload: AuthUserRegisteredPayload): Promise<User> {
         if (!env.OUTBOX_ENABLED) {
             const user = await this.repository.upsertFromAuthEvent(payload)
-            void publishUserCreatedEvent({
-                id: user.id,
-                email: user.email,
-                displayName: user.displayName,
-                createdAt: user.createdAt.toISOString(),
-                updatedAt: user.updatedAt.toISOString(),
-            });
+            try {
+                await publishUserCreatedEvent({
+                    id: user.id,
+                    email: user.email,
+                    displayName: user.displayName,
+                    createdAt: user.createdAt.toISOString(),
+                    updatedAt: user.updatedAt.toISOString(),
+                });
+            } catch (error) {
+                logger.warn(
+                    {
+                        err: error,
+                        userId: user.id,
+                        email: user.email,
+                        displayName: user.displayName,
+                    },
+                    "user.created publish failed in non-outbox mode",
+                );
+            }
             return user
         }
 
@@ -115,6 +141,7 @@ class UserService {
                     createdAt: user.createdAt.toISOString(),
                     updatedAt: user.updatedAt.toISOString(),
                 },
+                occurredAt: new Date().toISOString(),
                 occuredAt: new Date().toISOString(),
                 metadata: { version: 1 },
             }

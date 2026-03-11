@@ -77,7 +77,9 @@ export const startConsumers = async () => {
             const beginResult = await beginProcessingEvent(eventId, event.type, CONSUMER_NAME);
             if (beginResult !== 'acquired') {
                 logger.info({ eventId, beginResult }, 'consumer.duplicate');
-                ch.ack(message);
+                if (beginResult === 'duplicate') {
+                    ch.ack(message);
+                }
                 return;
             }
 

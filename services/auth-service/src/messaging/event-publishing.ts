@@ -176,6 +176,7 @@ export const stopOutboxPublisher = async () => {
 export const publishingUserRegistered = (payload: AuthUserRegisteredPayload) => {
     if (!channel) {
         logger.warn('RabbitMQ channel is not initialized.Cannot publish message')
+        return
     }
 
     const event = {

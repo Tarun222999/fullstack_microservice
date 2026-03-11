@@ -115,9 +115,7 @@ is available.
 
 4️⃣ Personal Chat Logic
 
-Each user should have a room.
-
-room:userId
+Each user should have a room using the `user:userId` pattern.
 
 When user connects:
 
@@ -138,19 +136,28 @@ socket.emit("message:send", {
 Backend:
 
 socket.on("message:send", async (data) => {
-
   const senderId = socket.data.user.id;
 
-  const message = await messageService.create({
-    senderId,
-    conversationId: data.conversationId,
-    text: data.text
-  });
+  try {
+    const message = await messageService.create({
+      senderId,
+      conversationId: data.conversationId,
+      text: data.text
+    });
 
-  const participants = await getConversationUsers(data.conversationId);
+    // If using transactional outbox, emit only after outbox processing
+    // (or from an outbox-driven publisher) to keep delivery consistent with persistence.
+    const participants = await getConversationUsers(data.conversationId);
 
-  for (const user of participants) {
-    io.to(`user:${user.id}`).emit("message:new", message);
+    for (const user of participants) {
+      io.to(`user:${user.id}`).emit("message:new", message);
+    }
+  } catch (error) {
+    logger.error({ err: error, conversationId: data.conversationId, senderId }, "message:send failed");
+    socket.emit("message:error", {
+      conversationId: data.conversationId,
+      error: "Failed to send message"
+    });
   }
 });
 
@@ -158,7 +165,9 @@ This ensures:
 
 User A sends message
 ↓
-Backend saves message
+Persist message + enqueue outbox in the same transaction (recommended)
+↓
+Outbox publisher processes event
 ↓
 Backend emits to all participants
 6️⃣ Frontend Socket Usage
@@ -292,7 +301,7 @@ idea
 4️⃣ Add Redis adapter
 5️⃣ Add presence tracking
 
-✅ If you want, I can also show you how Slack/Discord style chat architecture works, including:
+If desired, I can also demonstrate how Slack/Discord-style chat architecture works, including:
 
 typing indicators
 

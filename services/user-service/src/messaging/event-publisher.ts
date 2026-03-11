@@ -14,6 +14,7 @@ type ManagedConnection = Connection & Pick<ChannelModel, 'close' | 'createChanne
 let connection: ManagedConnection | null = null
 let channel: Channel | null = null
 let outboxTimer: NodeJS.Timeout | null = null
+let outboxInFlight: Promise<void> | null = null
 const workerId = `user-outbox-${process.pid}-${Math.random().toString(36).slice(2, 10)}`
 
 
@@ -150,7 +151,11 @@ const processOutboxBatch = async () => {
         }
 
         try {
-            await publishOutboxRow(row)
+            const freshRow = await OutboxEvent.findByPk(row.id)
+            if (!freshRow) {
+                continue
+            }
+            await publishOutboxRow(freshRow)
             await OutboxEvent.update(
                 {
                     status: 'published',
@@ -162,7 +167,8 @@ const processOutboxBatch = async () => {
                 { where: { id: row.id } },
             )
         } catch (error) {
-            const attempts = row.attempts + 1
+            const freshRow = await OutboxEvent.findByPk(row.id)
+            const attempts = (freshRow?.attempts ?? row.attempts) + 1
             const shouldDeadLetter = attempts >= env.OUTBOX_MAX_ATTEMPTS
             await OutboxEvent.update(
                 {
@@ -182,11 +188,21 @@ const processOutboxBatch = async () => {
 }
 
 const pollOutbox = async () => {
-    try {
-        await processOutboxBatch()
-    } catch (error) {
-        logger.error({ err: error }, 'Failed processing user outbox batch')
+    if (outboxInFlight) {
+        return outboxInFlight
     }
+
+    outboxInFlight = (async () => {
+        try {
+            await processOutboxBatch()
+        } catch (error) {
+            logger.error({ err: error }, 'Failed processing user outbox batch')
+        }
+    })().finally(() => {
+        outboxInFlight = null
+    })
+
+    return outboxInFlight
 }
 
 export const startOutboxPublisher = async () => {
@@ -207,6 +223,9 @@ export const stopOutboxPublisher = async () => {
     }
     clearInterval(outboxTimer)
     outboxTimer = null
+    if (outboxInFlight) {
+        await outboxInFlight
+    }
 }
 
 export const publishUserCreatedEvent = async (payload: UserCreatedPayload) => {

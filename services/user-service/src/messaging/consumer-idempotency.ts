@@ -1,7 +1,7 @@
 import { env } from "@/config/env";
 import { ProcessedEventModel } from "@/db";
 import { logger } from "@/utils/logger";
-import { Op } from "sequelize";
+import { Op, UniqueConstraintError } from "sequelize";
 
 export type BeginResult = "acquired" | "duplicate" | "in_progress";
 
@@ -25,7 +25,16 @@ export const beginProcessingEvent = async (
             lockedAt: new Date(),
         });
         return "acquired";
-    } catch {
+    } catch (error: any) {
+        const isUniqueError =
+            error instanceof UniqueConstraintError ||
+            error?.name === "SequelizeUniqueConstraintError" ||
+            error?.original?.code === "23505";
+
+        if (!isUniqueError) {
+            throw error;
+        }
+
         const existing = await ProcessedEventModel.findByPk(eventId);
         if (!existing) {
             return "in_progress";

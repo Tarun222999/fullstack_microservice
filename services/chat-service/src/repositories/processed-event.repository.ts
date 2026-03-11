@@ -28,6 +28,8 @@ const getCollection = async (): Promise<Collection<ProcessedEventDocument>> => {
 export const ensureProcessedEventIndexes = async () => {
     const collection = await getCollection();
     await collection.createIndex({ status: 1, lockedAt: 1 });
+    await collection.createIndex({ eventType: 1 });
+    await collection.createIndex({ processedAt: 1 }, { expireAfterSeconds: 60 * 60 * 24 * 30 });
 };
 
 const staleCutoff = () => new Date(Date.now() - env.CONSUMER_LOCK_TIMEOUT_MS);
@@ -116,16 +118,17 @@ export const markProcessedEvent = async (eventId: string) => {
     if (!env.CONSUMER_DEDUPE_ENABLED) {
         return;
     }
+    const now = new Date();
     const collection = await getCollection();
     await collection.updateOne(
         { _id: eventId },
         {
             $set: {
                 status: "processed",
-                processedAt: new Date(),
+                processedAt: now,
                 lockedAt: null,
                 lastError: null,
-                updatedAt: new Date(),
+                updatedAt: now,
             },
         },
     );
@@ -135,6 +138,7 @@ export const markFailedEvent = async (eventId: string, error: unknown) => {
     if (!env.CONSUMER_DEDUPE_ENABLED) {
         return;
     }
+    const now = new Date();
     const collection = await getCollection();
     await collection.updateOne(
         { _id: eventId },
@@ -143,7 +147,7 @@ export const markFailedEvent = async (eventId: string, error: unknown) => {
                 status: "failed",
                 lockedAt: null,
                 lastError: error instanceof Error ? error.message : String(error),
-                updatedAt: new Date(),
+                updatedAt: now,
             },
         },
     );

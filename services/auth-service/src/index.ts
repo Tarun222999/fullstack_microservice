@@ -24,19 +24,32 @@ const main = async () => {
             logger.info({ port }, 'Auth service is running')
         })
 
-        const shutdown = () => {
+        const shutdown = async () => {
             logger.info("Shutting down auth service")
 
-            Promise.all([stopOutboxPublisher(), closeDatabase(), closePublisher()]).catch((error: unknown) => {
+            let hasErrors = false;
+            try {
+                await stopOutboxPublisher();
+            } catch (error) {
+                hasErrors = true;
+                logger.error({ error }, "error stopping outbox publisher");
+            }
+
+            await Promise.all([closeDatabase(), closePublisher()]).catch((error: unknown) => {
+                hasErrors = true;
                 logger.error({ error }, "error during shutdown tasks")
             }).finally(() => {
-                server.close(() => process.exit(0))
+                server.close(() => process.exit(hasErrors ? 1 : 0))
             })
         }
 
 
-        process.on("SIGINT", shutdown)
-        process.on("SIGTERM", shutdown)
+        process.on("SIGINT", () => {
+            void shutdown()
+        })
+        process.on("SIGTERM", () => {
+            void shutdown()
+        })
 
     } catch (error) {
 

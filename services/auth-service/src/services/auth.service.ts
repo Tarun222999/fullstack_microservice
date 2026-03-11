@@ -9,9 +9,6 @@ import { HttpError } from "@chatapp/common";
 import { Op, Transaction } from "sequelize";
 import { AUTH_EVENT_EXCHANGE, AUTH_USER_REGISTERED_ROUTING_KEY } from "@chatapp/common";
 
-
-console.log("boot env.OUTBOX_ENABLED =", env.OUTBOX_ENABLED);
-
 const REFRESH_TOKEN_TTL_DAYS = 30;
 export const register = async (input: RegisterInput): Promise<AuthResponse> => {
     const existing = await UserCredentials.findOne({
@@ -42,8 +39,8 @@ export const register = async (input: RegisterInput): Promise<AuthResponse> => {
             displayName: user.displayName,
             createdAt: user.createdAt.toISOString()
         }
-        console.log("env.outboxenabled", env.OUTBOX_ENABLED)
         if (env.OUTBOX_ENABLED) {
+            const eventId = crypto.randomUUID();
 
             await enqueueOutboxEvent(
                 {
@@ -51,12 +48,14 @@ export const register = async (input: RegisterInput): Promise<AuthResponse> => {
                     exchangeName: AUTH_EVENT_EXCHANGE,
                     routingKey: AUTH_USER_REGISTERED_ROUTING_KEY,
                     payload: {
+                        eventId,
                         type: AUTH_USER_REGISTERED_ROUTING_KEY,
                         payload: userData,
                         occuredAt: new Date().toISOString(),
-                        metadata: { version: 1 },
+                        metadata: { version: 1, eventId },
                     },
                     metadata: {
+                        eventId,
                         aggregateType: 'user',
                         aggregateId: user.id,
                     },

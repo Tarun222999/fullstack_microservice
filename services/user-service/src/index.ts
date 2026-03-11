@@ -25,20 +25,52 @@ const main = async () => {
             logger.info({ port }, 'User service is running')
         })
 
-        const shutdown = () => {
+        const shutdown = async () => {
             logger.info("Shutting down User service")
 
-            Promise.all([stopAuthEventConsume(), stopOutboxPublisher(), closeMessaging(), closeDatabase()]).catch((error: unknown) => {
-                logger.error({ error }, "error during shutdown tasks")
-            })
-                .finally(() => {
-                    server.close(() => process.exit(0))
-                })
+            let hasErrors = false;
+            await new Promise<void>((resolve) => {
+                server.close(() => resolve());
+            });
+
+            try {
+                await stopAuthEventConsume();
+            } catch (error) {
+                hasErrors = true;
+                logger.error({ error }, "error during stopAuthEventConsume");
+            }
+
+            try {
+                await stopOutboxPublisher();
+            } catch (error) {
+                hasErrors = true;
+                logger.error({ error }, "error during stopOutboxPublisher");
+            }
+
+            try {
+                await closeMessaging();
+            } catch (error) {
+                hasErrors = true;
+                logger.error({ error }, "error during closeMessaging");
+            }
+
+            try {
+                await closeDatabase();
+            } catch (error) {
+                hasErrors = true;
+                logger.error({ error }, "error during closeDatabase");
+            }
+
+            process.exit(hasErrors ? 1 : 0);
         }
 
 
-        process.on("SIGINT", shutdown)
-        process.on("SIGTERM", shutdown)
+        process.on("SIGINT", () => {
+            void shutdown()
+        })
+        process.on("SIGTERM", () => {
+            void shutdown()
+        })
 
     } catch (error) {
 

@@ -52,7 +52,9 @@ const handleMessage = async (message: ConsumeMessage, ch: Channel) => {
     const beginResult = await beginProcessingEvent(eventId, event.type, CONSUMER_NAME);
     if (beginResult !== "acquired") {
         logger.info({ eventId, beginResult }, "consumer.duplicate");
-        ch.ack(message);
+        if (beginResult === "duplicate") {
+            ch.ack(message);
+        }
         return;
     }
 
@@ -62,7 +64,11 @@ const handleMessage = async (message: ConsumeMessage, ch: Channel) => {
         logger.info({ eventId }, "consumer.processed");
         ch.ack(message);
     } catch (error) {
-        await markFailedEvent(eventId, error);
+        try {
+            await markFailedEvent(eventId, error);
+        } catch (markError) {
+            logger.error({ err: markError, eventId }, "consumer.mark_failed_error");
+        }
         logger.error({ err: error, eventId }, "consumer.failed");
         ch.nack(message, false, false);
     }

@@ -3,13 +3,13 @@
 Jaeger
 Prometheus
 Grafana)here +distrubutive tracing??? ??also add unit testing and intergration testing
- + coderabbit + arcject + 
+ + coderabbit + architect + 
 2.build nextjs project with privacy/destructable chat(deploy)
 3.integreate main chat with privacy chat(deploy without breaking)
 (in main chat let the user go the private chat with minimal steps)
 4.add email notify service(backend +fe)(deploy without breaking)
 5.try adding ci/cd for the project
-ask gpt when is the correct time to add cloudflare also ci/cd 
+ask gpt when is the correct time to add Cloudflare also ci/cd 
 then think of ai-chat
 
 
@@ -22,7 +22,7 @@ authenticated symmetric encryption algorithm providing both confidentiality and 
 
 //create a service mailchip written in go(provide a usecase for this)
 //build ci/cd for the project(CI/CD deployment endpoints,GitHub Actions → Cloudflare mTLS → Deploy API)
-//try using cloudflare(loadbalancing,cdn,waf,mlts,bot check ,ratelimit etc)
+//try using Cloudflare (load balancing, CDN, WAF, mTLS, bot check, rate limit, etc.)
 //add monitoring and observbility
 //if possible use ai ~~~~(chat with ai)
 //unit tests and integration tests
