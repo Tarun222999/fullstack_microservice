@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
     conversationIdParamsSchema,
     createConversationBodySchema,
+    createDirectConversationBodySchema,
     listConversationsQuerySchema,
 } from '@/validation/conversation.schema';
 
@@ -25,6 +26,14 @@ describe('conversation schema', () => {
                 participantIds: [],
             }),
         ).toThrow();
+    });
+
+    it('accepts a valid create direct conversation payload', () => {
+        const parsed = createDirectConversationBodySchema.parse({
+            participantId: '6d36fffd-9f1f-48ce-9d68-fc85501f9cf6',
+        });
+
+        expect(parsed.participantId).toBe('6d36fffd-9f1f-48ce-9d68-fc85501f9cf6');
     });
 
     it('accepts list query with optional participantId', () => {

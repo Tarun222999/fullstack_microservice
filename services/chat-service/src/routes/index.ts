@@ -1,5 +1,6 @@
 import type { Router } from 'express';
 import { conversationRouter } from '@/routes/conversation.route';
+import { directConversationRouter } from '@/routes/direct-conversation.route';
 
 
 
@@ -10,4 +11,5 @@ export const registerRoutes = (app: Router) => {
     });
 
     app.use('/conversations', conversationRouter);
+    app.use('/direct-conversations', directConversationRouter);
 };

@@ -11,10 +11,38 @@ import { conversationRepository } from '@/repositories/conversation.repository';
 
 export const conversationService = {
     async createConversation(input: CreateConversationInput): Promise<Conversation> {
-
-        const conversation = await conversationRepository.create(input)
+        const conversation = await conversationRepository.create({
+            title: input.title,
+            participantIds: input.participantIds,
+            kind: 'group',
+        })
         await conversationCache.set(conversation)
         return conversation
+    },
+
+    async createOrGetDirectConversation(requesterId: string, otherUserId: string): Promise<Conversation> {
+        if (requesterId === otherUserId) {
+            throw new HttpError(400, 'Direct conversation must include another user');
+        }
+
+        const participantIds = [requesterId, otherUserId].sort();
+        const directPairKey = participantIds.join(':');
+
+        const existing = await conversationRepository.findDirectByPairKey(directPairKey);
+        if (existing) {
+            await conversationCache.set(existing);
+            return existing;
+        }
+
+        const conversation = await conversationRepository.createOrGetDirect({
+            title: null,
+            participantIds,
+            kind: 'direct',
+            directPairKey,
+        });
+
+        await conversationCache.set(conversation);
+        return conversation;
     },
 
     async getConversationById(id: string): Promise<Conversation> {

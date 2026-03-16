@@ -5,6 +5,10 @@ export const createConversationBodySchema = z.object({
     participantIds: z.array(z.string().uuid()).min(1),
 });
 
+export const createDirectConversationBodySchema = z.object({
+    participantId: z.string().uuid(),
+});
+
 export const listConversationsQuerySchema = z.object({
     participantId: z.string().uuid().optional(),
 });

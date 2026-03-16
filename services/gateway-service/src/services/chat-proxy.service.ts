@@ -43,6 +43,7 @@ const handleAxiosError = (error: unknown): never => {
 
 export interface ConversationDto {
     id: string;
+    kind: 'direct' | 'group';
     title: string | null;
     participantIds: string[];
     createdAt: string;
@@ -88,6 +89,10 @@ export interface CreateConversationPayload {
     participantIds: string[];
 }
 
+export interface CreateDirectConversationPayload {
+    participantId: string;
+}
+
 export interface CreateMessagePayload {
     body: string;
 }
@@ -106,6 +111,20 @@ export const chatProxyService = {
             return response.data.data;
         } catch (error) {
 
+            return handleAxiosError(error);
+        }
+    },
+
+    async createDirectConversation(
+        userId: string,
+        payload: CreateDirectConversationPayload,
+    ): Promise<ConversationDto> {
+        try {
+            const response = await client.post<ConversationResponse>('/direct-conversations', payload, {
+                headers: { [USER_ID_HEADER]: userId },
+            });
+            return response.data.data;
+        } catch (error) {
             return handleAxiosError(error);
         }
     },

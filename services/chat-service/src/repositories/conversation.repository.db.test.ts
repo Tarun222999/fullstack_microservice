@@ -38,6 +38,7 @@ describe('conversationRepository db integration', () => {
         const found = await runtime.conversationRepository.findById(created.id);
 
         expect(found).not.toBeNull();
+        expect(found.kind).toBe('group');
         expect(found.title).toBe('Repo Chat');
         expect(found.participantIds).toHaveLength(2);
     });
@@ -60,5 +61,36 @@ describe('conversationRepository db integration', () => {
         const list = await runtime.conversationRepository.findSummaries({ participantId });
 
         expect(list).toHaveLength(2);
+        expect(list.every((conversation: { kind: string }) => conversation.kind === 'group')).toBe(true);
+    });
+
+    it('creates or reuses a single direct conversation for a participant pair', async (context) => {
+        if (!runtime.available) {
+            context.skip();
+        }
+
+        const first = await runtime.conversationRepository.createOrGetDirect({
+            title: null,
+            kind: 'direct',
+            directPairKey: '112f8d72-4ed6-4bf1-be77-85db63e03a39:ea43bfde-4aab-4215-990a-927da133b6ce',
+            participantIds: [
+                '112f8d72-4ed6-4bf1-be77-85db63e03a39',
+                'ea43bfde-4aab-4215-990a-927da133b6ce',
+            ],
+        });
+
+        const second = await runtime.conversationRepository.createOrGetDirect({
+            title: null,
+            kind: 'direct',
+            directPairKey: '112f8d72-4ed6-4bf1-be77-85db63e03a39:ea43bfde-4aab-4215-990a-927da133b6ce',
+            participantIds: [
+                'ea43bfde-4aab-4215-990a-927da133b6ce',
+                '112f8d72-4ed6-4bf1-be77-85db63e03a39',
+            ],
+        });
+
+        expect(second.id).toBe(first.id);
+        expect(second.kind).toBe('direct');
+        expect(second.title).toBeNull();
     });
 });
