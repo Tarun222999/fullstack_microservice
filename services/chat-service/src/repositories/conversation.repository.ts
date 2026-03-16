@@ -30,19 +30,24 @@ const ensureConversationIndexes = async (): Promise<void> => {
     }
 
     indexesPromise = (async () => {
-        const client = await getMongoClient();
-        const db = client.db();
-        await db.collection(CONVERSATIONS_COLLECTION).createIndex(
-            { directPairKey: 1 },
-            {
-                unique: true,
-                name: 'conversations_direct_pair_key_unique',
-                partialFilterExpression: {
-                    kind: 'direct',
-                    directPairKey: { $type: 'string' },
+        try {
+            const client = await getMongoClient();
+            const db = client.db();
+            await db.collection(CONVERSATIONS_COLLECTION).createIndex(
+                { directPairKey: 1 },
+                {
+                    unique: true,
+                    name: 'conversations_direct_pair_key_unique',
+                    partialFilterExpression: {
+                        kind: 'direct',
+                        directPairKey: { $type: 'string' },
+                    },
                 },
-            },
-        );
+            );
+        } catch (error) {
+            indexesPromise = null;
+            throw error;
+        }
     })();
 
     return indexesPromise;

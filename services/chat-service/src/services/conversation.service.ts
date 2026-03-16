@@ -12,8 +12,9 @@ import { conversationRepository } from '@/repositories/conversation.repository';
 export const conversationService = {
     async createConversation(input: CreateConversationInput): Promise<Conversation> {
         const conversation = await conversationRepository.create({
-            ...input,
-            kind: input.kind ?? 'group',
+            title: input.title,
+            participantIds: input.participantIds,
+            kind: 'group',
         })
         await conversationCache.set(conversation)
         return conversation
