@@ -1,8 +1,10 @@
 import type { RequestHandler } from 'express';
 
 import { chatProxyService } from '@/services/chat-proxy.service';
+import { userProxyService } from '@/services/user-proxy.service';
 import { getAuthenticatedUser } from '@/utils/auth';
 import {
+    createDirectConversationBodySchema,
     createConversationBodySchema,
     listConversationsQuerySchema,
     conversationIdParamsSchema,
@@ -26,6 +28,21 @@ export const createConversationHandler: RequestHandler = asyncHandler(async (req
     });
 
     res.status(201).json({ data: conversation });
+});
+
+export const createDirectConversationHandler: RequestHandler = asyncHandler(async (req, res) => {
+    const user = getAuthenticatedUser(req);
+    const payload = createDirectConversationBodySchema.parse(req.body);
+
+    if (payload.participantId === user.id) {
+        throw new HttpError(400, 'Direct conversation must include another user');
+    }
+
+    await userProxyService.getUserById(payload.participantId);
+
+    const conversation = await chatProxyService.createDirectConversation(user.id, payload);
+
+    res.status(200).json({ data: conversation });
 });
 
 

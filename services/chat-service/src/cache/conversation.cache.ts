@@ -10,6 +10,7 @@ const serialize = (conversation: Conversation): string => {
         ...conversation,
         createdAt: conversation.createdAt.toISOString(),
         updatedAt: conversation.updatedAt.toISOString(),
+        lastMessageAt: conversation.lastMessageAt?.toISOString() ?? null,
     })
 }
 
@@ -18,11 +19,13 @@ const deserialize = (raw: string): Conversation => {
     const parsed = JSON.parse(raw) as Conversation & {
         createdAt: string;
         updatedAt: string;
+        lastMessageAt: string | null;
     };
     return {
         ...parsed,
         createdAt: new Date(parsed.createdAt),
         updatedAt: new Date(parsed.updatedAt),
+        lastMessageAt: parsed.lastMessageAt ? new Date(parsed.lastMessageAt) : null,
     };
 };
 

@@ -1,7 +1,10 @@
 
 
+export type ConversationKind = 'direct' | 'group';
+
 export interface Conversation {
     id: string;
+    kind: ConversationKind;
     title: string | null
     participantIds: string[];
     createdAt: Date;
@@ -14,6 +17,8 @@ export interface Conversation {
 export interface CreateConversationInput {
     title?: string | null;
     participantIds: string[];
+    kind?: ConversationKind;
+    directPairKey?: string;
 }
 
 export interface ConversationFilter {

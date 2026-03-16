@@ -37,6 +37,7 @@ describe('conversationService db integration', () => {
 
         const first = await runtime.conversationService.getConversationById(created.id);
         expect(first.id).toBe(created.id);
+        expect(first.kind).toBe('group');
 
         const mongo = await runtime.getMongoClient();
         await mongo.db().collection('conversations').deleteOne({ _id: created.id });
@@ -68,5 +69,27 @@ describe('conversationService db integration', () => {
         const updated = await runtime.conversationRepository.findById(created.id);
         expect(updated.lastMessagePreview).toBe('Latest preview text');
         expect(updated.lastMessageAt).not.toBeNull();
+    });
+
+    it('createOrGetDirectConversation reuses the same conversation for the same pair', async (context) => {
+        if (!runtime.available) {
+            context.skip();
+        }
+
+        const first = await runtime.conversationService.createOrGetDirectConversation(
+            'ea43bfde-4aab-4215-990a-927da133b6ce',
+            '112f8d72-4ed6-4bf1-be77-85db63e03a39',
+        );
+        const second = await runtime.conversationService.createOrGetDirectConversation(
+            '112f8d72-4ed6-4bf1-be77-85db63e03a39',
+            'ea43bfde-4aab-4215-990a-927da133b6ce',
+        );
+
+        expect(first.id).toBe(second.id);
+        expect(second.kind).toBe('direct');
+        expect(second.participantIds).toEqual([
+            '112f8d72-4ed6-4bf1-be77-85db63e03a39',
+            'ea43bfde-4aab-4215-990a-927da133b6ce',
+        ]);
     });
 });

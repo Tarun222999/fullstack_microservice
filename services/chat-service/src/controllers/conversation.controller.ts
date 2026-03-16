@@ -3,6 +3,7 @@ import type { RequestHandler } from 'express';
 import { conversationService } from '@/services/conversation.service';
 import {
     createConversationSchema,
+    createDirectConversationSchema,
     listConversationsQuerySchema,
 } from '@/validation/conversation.schema';
 import { conversationIdParamsSchema } from '@/validation/shared.schema';
@@ -30,6 +31,22 @@ export const createConversationHandler: RequestHandler = asyncHandler(async (req
 
     res.status(201).json({ data: conversation })
 })
+
+export const createDirectConversationHandler: RequestHandler = asyncHandler(async (req, res) => {
+    const user = getAuthenticatedUser(req);
+    const payload = createDirectConversationSchema.parse(req.body);
+
+    if (payload.participantId === user.id) {
+        throw new HttpError(400, 'Direct conversation must include another user');
+    }
+
+    const conversation = await conversationService.createOrGetDirectConversation(
+        user.id,
+        payload.participantId,
+    );
+
+    res.status(200).json({ data: conversation });
+});
 
 export const listConversationHandler: RequestHandler = asyncHandler(async (req, res) => {
     const user = getAuthenticatedUser(req);

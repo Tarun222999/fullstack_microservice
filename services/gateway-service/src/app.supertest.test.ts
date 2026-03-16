@@ -1,5 +1,5 @@
 import request from 'supertest';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import jwt from 'jsonwebtoken';
 
 const authProxyMocks = vi.hoisted(() => ({
@@ -18,6 +18,7 @@ const userProxyMocks = vi.hoisted(() => ({
 
 const chatProxyMocks = vi.hoisted(() => ({
     createConversation: vi.fn(),
+    createDirectConversation: vi.fn(),
     listConversations: vi.fn(),
     getConversation: vi.fn(),
     createMessage: vi.fn(),
@@ -53,6 +54,10 @@ const makeAccessToken = (sub: string) =>
     jwt.sign({ sub, email: 'test@example.com' }, process.env.JWT_SECRET as string);
 
 describe('gateway-service http', () => {
+    beforeEach(() => {
+        vi.clearAllMocks();
+    });
+
     it('GET /health returns service status', async () => {
         const app = createApp();
 
@@ -145,6 +150,7 @@ describe('gateway-service http', () => {
     it('POST /conversations appends caller id and delegates to chat proxy', async () => {
         chatProxyMocks.createConversation.mockResolvedValue({
             id: '7af7345f-5419-47f1-b1a3-f25e31e0f1e4',
+            kind: 'group',
             title: 'Project',
             participantIds: [
                 'dc40ca49-b0f2-4b27-a771-5fda47d1d66f',
@@ -194,6 +200,7 @@ describe('gateway-service http', () => {
     it('GET /conversations/:id returns 403 when caller is not a participant', async () => {
         chatProxyMocks.getConversation.mockResolvedValue({
             id: '7af7345f-5419-47f1-b1a3-f25e31e0f1e4',
+            kind: 'group',
             title: 'Project',
             participantIds: ['936cf6c1-be78-4192-9c77-8f44a84ff6ea'],
             createdAt: '2026-01-01T00:00:00.000Z',
@@ -209,6 +216,82 @@ describe('gateway-service http', () => {
             .set('Authorization', `Bearer ${token}`);
 
         expect(response.status).toBe(403);
+    });
+
+    it('POST /direct-conversations returns 401 without auth header', async () => {
+        const app = createApp();
+
+        const response = await request(app).post('/direct-conversations').send({
+            participantId: '936cf6c1-be78-4192-9c77-8f44a84ff6ea',
+        });
+
+        expect(response.status).toBe(401);
+    });
+
+    it('POST /direct-conversations returns 422 for invalid body', async () => {
+        const app = createApp();
+        const token = makeAccessToken('dc40ca49-b0f2-4b27-a771-5fda47d1d66f');
+
+        const response = await request(app)
+            .post('/direct-conversations')
+            .set('Authorization', `Bearer ${token}`)
+            .send({ participantId: 'nope' });
+
+        expect(response.status).toBe(422);
+    });
+
+    it('POST /direct-conversations rejects self DM', async () => {
+        const app = createApp();
+        const token = makeAccessToken('dc40ca49-b0f2-4b27-a771-5fda47d1d66f');
+
+        const response = await request(app)
+            .post('/direct-conversations')
+            .set('Authorization', `Bearer ${token}`)
+            .send({ participantId: 'dc40ca49-b0f2-4b27-a771-5fda47d1d66f' });
+
+        expect(response.status).toBe(400);
+        expect(chatProxyMocks.createDirectConversation).not.toHaveBeenCalled();
+    });
+
+    it('POST /direct-conversations validates target user and delegates to chat proxy', async () => {
+        userProxyMocks.getUserById.mockResolvedValue({
+            data: {
+                id: '936cf6c1-be78-4192-9c77-8f44a84ff6ea',
+                email: 'target@example.com',
+                displayName: 'Target',
+                createdAt: '2026-01-01T00:00:00.000Z',
+                updatedAt: '2026-01-01T00:00:00.000Z',
+            },
+        });
+        chatProxyMocks.createDirectConversation.mockResolvedValue({
+            id: '7af7345f-5419-47f1-b1a3-f25e31e0f1e4',
+            kind: 'direct',
+            title: null,
+            participantIds: [
+                '936cf6c1-be78-4192-9c77-8f44a84ff6ea',
+                'dc40ca49-b0f2-4b27-a771-5fda47d1d66f',
+            ],
+            createdAt: '2026-01-01T00:00:00.000Z',
+            updatedAt: '2026-01-01T00:00:00.000Z',
+            lastMessageAt: null,
+            lastMessagePreview: null,
+        });
+        const app = createApp();
+        const token = makeAccessToken('dc40ca49-b0f2-4b27-a771-5fda47d1d66f');
+
+        const response = await request(app)
+            .post('/direct-conversations')
+            .set('Authorization', `Bearer ${token}`)
+            .send({ participantId: '936cf6c1-be78-4192-9c77-8f44a84ff6ea' });
+
+        expect(response.status).toBe(200);
+        expect(userProxyMocks.getUserById).toHaveBeenCalledWith(
+            '936cf6c1-be78-4192-9c77-8f44a84ff6ea',
+        );
+        expect(chatProxyMocks.createDirectConversation).toHaveBeenCalledWith(
+            'dc40ca49-b0f2-4b27-a771-5fda47d1d66f',
+            { participantId: '936cf6c1-be78-4192-9c77-8f44a84ff6ea' },
+        );
     });
 
     it('POST /conversations/:id/messages returns 401 without auth', async () => {
