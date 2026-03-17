@@ -3,13 +3,14 @@ import { Server as SocketIOServer } from 'socket.io';
 import { HttpError } from '@chatapp/common';
 
 import { logger } from '@/utils/logger';
+import { closeSocketRedisAdapter, attachSocketRedisAdapter } from '@/websocket/socket-adapter';
 import { authenticateSocket } from '@/websocket/socket-auth';
 import { registerConversationSocketHandlers } from '@/websocket/conversation-socket';
 
 let ioServer: SocketIOServer | null = null;
 const userRoom = (userId: string) => `user:${userId}`;
 
-export const startSocketServer = (httpServer: HttpServer): SocketIOServer => {
+export const startSocketServer = async (httpServer: HttpServer): Promise<SocketIOServer> => {
     if (ioServer) {
         return ioServer;
     }
@@ -46,6 +47,7 @@ export const startSocketServer = (httpServer: HttpServer): SocketIOServer => {
         });
     });
 
+    await attachSocketRedisAdapter(ioServer);
     logger.info('Socket server initialized');
     return ioServer;
 };
@@ -56,6 +58,7 @@ export const closeSocketServer = async (): Promise<void> => {
     }
 
     await ioServer.close();
+    await closeSocketRedisAdapter();
     ioServer = null;
     logger.info('Socket server closed');
 };

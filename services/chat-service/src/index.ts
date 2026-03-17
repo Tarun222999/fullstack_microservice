@@ -13,7 +13,7 @@ const main = async () => {
 
         const app = createApp();
         const server = createServer(app);
-        startSocketServer(server);
+        await startSocketServer(server);
 
         const port = env.PORT ?? env.CHAT_SERVICE_PORT;
 

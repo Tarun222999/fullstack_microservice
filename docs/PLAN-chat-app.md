@@ -148,8 +148,11 @@ Implement websocket connectivity for users directly to `chat-service` with **per
   - messages are persisted through existing `messageService` before realtime emission
   - conversation participants receive `message:new`
   - sender receives ack/error feedback
+- Step 6 completed:
+  - Socket.IO now uses the Redis adapter for room fanout
+  - websocket pub/sub uses dedicated Redis adapter clients
+  - adapter clients are closed during websocket shutdown
 - Remaining Phase 1 steps:
-  - Redis adapter
   - final docs and regression validation
 
 ### Topology
@@ -242,6 +245,11 @@ Implement websocket connectivity for users directly to `chat-service` with **per
 
 - Server -> sender on failure:
   - `message:error`
+
+### Redis Adapter
+- Socket.IO room fanout is now backed by the Redis adapter.
+- This keeps room delivery correct when `chat-service` runs in multiple instances.
+- The websocket layer uses dedicated Redis pub/sub clients for adapter traffic instead of reusing the normal app Redis connection directly.
 
 ### MVP Features (Supported) and Extension Path
 - **MVP supported**
