@@ -132,8 +132,11 @@ Implement websocket connectivity for users directly to `chat-service` with **per
   - Socket.IO is attached directly to the `chat-service` HTTP server.
   - Websocket lifecycle is started and stopped with the service.
   - Minimal socket connect/disconnect logging is in place.
+- Step 2 completed:
+  - socket handshake now requires a valid JWT
+  - token is accepted from socket auth payload or `Authorization` header
+  - authenticated user context is attached to the socket before handlers run
 - Remaining Phase 1 steps:
-  - handshake authentication
   - user room join
   - conversation join/leave
   - persist-first `message:send`
@@ -143,6 +146,12 @@ Implement websocket connectivity for users directly to `chat-service` with **per
 ### Topology
 - Websocket connections terminate at `chat-service`, not gateway.
 - Gateway stays HTTP-only for this phase.
+
+### Socket Auth Contract
+- Client may send the access token through:
+  - `socket.auth.token`
+  - `Authorization: Bearer <token>` in handshake headers
+- Invalid or missing tokens are rejected during the handshake.
 
 ### MVP Features (Supported) and Extension Path
 - **MVP supported**
