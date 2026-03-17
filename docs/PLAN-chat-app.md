@@ -139,9 +139,16 @@ Implement websocket connectivity for users directly to `chat-service` with **per
 - Step 3 completed:
   - authenticated sockets now auto-join `user:{userId}`
   - connection logs include the user room name explicitly
+- Step 4 completed:
+  - sockets now support `conversation:join` and `conversation:leave`
+  - only conversation participants are allowed to join `conversation:{conversationId}`
+  - direct and group conversations both use the same room authorization rule
+- Step 5 completed:
+  - sockets now support `message:send`
+  - messages are persisted through existing `messageService` before realtime emission
+  - conversation participants receive `message:new`
+  - sender receives ack/error feedback
 - Remaining Phase 1 steps:
-  - conversation join/leave
-  - persist-first `message:send`
   - Redis adapter
   - final docs and regression validation
 
@@ -159,7 +166,7 @@ Implement websocket connectivity for users directly to `chat-service` with **per
 - Per-user room:
   - `user:{userId}`
 - Conversation room:
-  - `conversation:{conversationId}` (next step)
+  - `conversation:{conversationId}`
 
 ### What A Socket Means Here
 - A socket is one active client connection to the Socket.IO server.
@@ -174,6 +181,67 @@ Implement websocket connectivity for users directly to `chat-service` with **per
 - If the same user connects from another device or tab, that new socket also joins the same room.
 - This gives the server one stable target for user-specific events.
 - Emitting to `user:{userId}` sends the event to all active sockets for that user, which is how multi-device sync works.
+
+### Conversation Room Join/Leave
+- Client joins a conversation room by sending:
+  - `conversation:join` with `{ conversationId }`
+- Client leaves a conversation room by sending:
+  - `conversation:leave` with `{ conversationId }`
+- The server checks conversation membership before allowing the join.
+- Only participants in that conversation can join `conversation:{conversationId}`.
+
+### Realtime Message Flow
+- Client sends:
+  - `message:send` with `{ conversationId, body, clientMessageId? }`
+- Server flow:
+  - validate payload
+  - call existing `messageService.createMessage(...)`
+  - persist message
+  - emit `message:new` to the conversation room
+  - return ack to sender
+- On failure:
+  - sender receives `message:error`
+  - sender also receives a negative ack payload
+
+### Realtime Message Payloads
+- Client -> server:
+  - `message:send`
+```json
+{
+  "conversationId": "7af7345f-5419-47f1-b1a3-f25e31e0f1e4",
+  "body": "Hello there",
+  "clientMessageId": "client-1"
+}
+```
+
+- Server -> room:
+  - `message:new`
+```json
+{
+  "message": {
+    "id": "11111111-2222-3333-4444-555555555555",
+    "conversationId": "7af7345f-5419-47f1-b1a3-f25e31e0f1e4",
+    "senderId": "dc40ca49-b0f2-4b27-a771-5fda47d1d66f",
+    "body": "Hello there",
+    "createdAt": "2026-01-01T00:01:00.000Z",
+    "reactions": []
+  }
+}
+```
+
+- Server -> sender:
+  - `message:ack`
+```json
+{
+  "ok": true,
+  "conversationId": "7af7345f-5419-47f1-b1a3-f25e31e0f1e4",
+  "messageId": "11111111-2222-3333-4444-555555555555",
+  "clientMessageId": "client-1"
+}
+```
+
+- Server -> sender on failure:
+  - `message:error`
 
 ### MVP Features (Supported) and Extension Path
 - **MVP supported**

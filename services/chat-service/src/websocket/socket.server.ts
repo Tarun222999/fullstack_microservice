@@ -4,6 +4,7 @@ import { HttpError } from '@chatapp/common';
 
 import { logger } from '@/utils/logger';
 import { authenticateSocket } from '@/websocket/socket-auth';
+import { registerConversationSocketHandlers } from '@/websocket/conversation-socket';
 
 let ioServer: SocketIOServer | null = null;
 const userRoom = (userId: string) => `user:${userId}`;
@@ -35,6 +36,7 @@ export const startSocketServer = (httpServer: HttpServer): SocketIOServer => {
         const room = userRoom(socket.data.user.id);
         socket.join(room);
         logger.info({ socketId: socket.id, userId: socket.data.user.id, room }, 'Socket connected');
+        registerConversationSocketHandlers(socket);
 
         socket.on('disconnect', (reason) => {
             logger.info(
