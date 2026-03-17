@@ -127,6 +127,23 @@ This keeps the UI simple:
 ### Summary
 Implement websocket connectivity for users directly to `chat-service` with **persist-first delivery** and **core + presence** features in MVP, while designing event contracts and service boundaries so typing/read receipts can be added without re-architecture. Keep Gateway on HTTP for now; optionally add Gateway websocket proxy later.
 
+### Websocket Phase 1 Steps
+- Step 1 completed:
+  - Socket.IO is attached directly to the `chat-service` HTTP server.
+  - Websocket lifecycle is started and stopped with the service.
+  - Minimal socket connect/disconnect logging is in place.
+- Remaining Phase 1 steps:
+  - handshake authentication
+  - user room join
+  - conversation join/leave
+  - persist-first `message:send`
+  - Redis adapter
+  - final docs and regression validation
+
+### Topology
+- Websocket connections terminate at `chat-service`, not gateway.
+- Gateway stays HTTP-only for this phase.
+
 ### MVP Features (Supported) and Extension Path
 - **MVP supported**
   - Socket auth (JWT-based user identity on connect)
