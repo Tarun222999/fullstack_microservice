@@ -122,10 +122,10 @@ This keeps the UI simple:
 - block user
 - DM rate-limit / anti-spam
 
-## Websocket Integration Plan (Chat-Service First, Extensible Design)
+## Websocket Phase 1 Implementation
 
 ### Summary
-Implement websocket connectivity for users directly to `chat-service` with **persist-first delivery** and **core + presence** features in MVP, while designing event contracts and service boundaries so typing/read receipts can be added without re-architecture. Keep Gateway on HTTP for now; optionally add Gateway websocket proxy later.
+Implement websocket connectivity for users directly to `chat-service` with a lean **persist-first realtime messaging** scope. Gateway stays HTTP-only. Phase 1 covers authenticated socket connections, per-user and per-conversation rooms, realtime message send/fanout, and Redis-backed room fanout across instances.
 
 ### Websocket Phase 1 Steps
 - Step 1 completed:
@@ -152,8 +152,9 @@ Implement websocket connectivity for users directly to `chat-service` with **per
   - Socket.IO now uses the Redis adapter for room fanout
   - websocket pub/sub uses dedicated Redis adapter clients
   - adapter clients are closed during websocket shutdown
-- Remaining Phase 1 steps:
-  - final docs and regression validation
+- Step 7 completed:
+  - docs now reflect only implemented websocket behavior
+  - workspace regression suite is green
 
 ### Topology
 - Websocket connections terminate at `chat-service`, not gateway.
@@ -251,58 +252,45 @@ Implement websocket connectivity for users directly to `chat-service` with **per
 - This keeps room delivery correct when `chat-service` runs in multiple instances.
 - The websocket layer uses dedicated Redis pub/sub clients for adapter traffic instead of reusing the normal app Redis connection directly.
 
-### MVP Features (Supported) and Extension Path
-- **MVP supported**
-  - Socket auth (JWT-based user identity on connect)
-  - User room join (`user:{userId}`)
-  - Conversation room join (`conversation:{conversationId}`) with membership check
-  - `message:send` (persist-first), `message:new` fanout
-  - Sender ack/error events (`message:ack`, `message:error`)
-  - Presence (`presence:online`, `presence:offline`) with Redis-backed online state
-  - Reconnect sync hook (`messages:sync` by last message timestamp/id)
-- **Extended features (planned next)**
-  - Typing indicators (`typing:start`, `typing:stop`)
-  - Read receipts (`conversation:read`)
-  - Delivery/read state fanout optimization
-  - Gateway websocket proxy mode (single public entrypoint)
-  - Multi-device session policies and per-device presence
+### Implemented Phase 1 Scope
+- Socket auth (JWT-based user identity on connect)
+- User room join (`user:{userId}`)
+- Conversation room join/leave with membership checks
+- Persist-first `message:send`
+- `message:new` fanout
+- Sender ack/error feedback
+- Redis adapter for multi-instance room fanout
 
-### System Design and Implementation Changes
+### Deferred To Phase 2+
+- Presence
+- Typing indicators
+- Read receipts
+- Unread counts
+- Reconnect sync over websocket
+- Rate limiting
+- Payload size limits
+- Heartbeat/ping hardening
+- Gateway websocket proxy
+
+### System Design
 - **Connection topology**
-  - Frontend connects to `chat-service` websocket endpoint.
-  - Keep Gateway as REST proxy only in MVP.
-  - Add Redis adapter from day one for horizontal socket scaling.
+  - Frontend connects directly to `chat-service` websocket endpoint.
+  - Gateway remains REST-only.
 - **Authentication and authorization**
-  - Websocket handshake includes JWT.
-  - Validate JWT in socket middleware; attach `socket.data.user`.
-  - For room joins and `message:send`, verify conversation membership using existing conversation service/repository.
-- **Event flow (persist-first)**
-  - `socket.on("message:send")`:
-    1. Validate payload
-    2. Authorize sender membership
-    3. Persist via existing `messageService.createMessage`
-    4. Emit `message:new` to conversation participants/room
-    5. Emit `message:ack` to sender
-  - On failure, emit safe `message:error` (no internal stack details).
-- **Presence design**
-  - On connect/disconnect, maintain Redis keys/sets for user online sessions.
-  - Broadcast online/offline only on first connect/last disconnect per user.
-  - Include optional last-seen timestamp storage for offline state.
-- **Scalability/reliability**
-  - Use Socket.IO Redis adapter to route emits across instances.
-  - Apply connection and message rate-limits.
-  - Set heartbeat/ping intervals and backpressure-safe payload size limits.
-  - Keep service events (RabbitMQ) and realtime socket delivery concerns separate.
-- **Observability/security**
-  - Structured logs with `userId`, `conversationId`, `socketId`, event type, latency.
-  - Metrics: active sockets, send rate, ack/error counts, auth failures, fanout size.
-  - JWT expiry handling + forced disconnect on invalid token.
-  - CORS/origin allowlist for websocket origin policy.
+  - JWT is validated during socket handshake.
+  - Authenticated user is stored on `socket.data.user`.
+  - Conversation room access is checked via existing conversation service logic.
+- **Event flow**
+  - `conversation:join` / `conversation:leave` manage membership in `conversation:{conversationId}` rooms.
+  - `message:send` calls existing `messageService.createMessage(...)`.
+  - Only after persistence succeeds does the server emit `message:new`.
+- **Scaling**
+  - Socket.IO Redis adapter propagates room fanout across multiple `chat-service` instances.
 
 ### Interfaces / Contracts
 - **Socket events (MVP)**
-  - Client -> server: `conversation:join`, `conversation:leave`, `message:send`, `messages:sync`
-  - Server -> client: `message:new`, `message:ack`, `message:error`, `presence:online`, `presence:offline`
+  - Client -> server: `conversation:join`, `conversation:leave`, `message:send`
+  - Server -> client: `message:new`, `message:ack`, `message:error`
 - **Payload shape principles**
   - Include `conversationId`, `messageId`, `senderId`, `createdAt`, and client correlation id for ack mapping.
   - Keep schemas versionable (add optional fields only in MVP).
@@ -311,23 +299,19 @@ Implement websocket connectivity for users directly to `chat-service` with **per
 ### Test Plan and Acceptance Criteria
 - **Unit tests**
   - Socket auth middleware success/failure
-  - `message:send` handler: success, unauthorized membership, validation errors
-  - Presence transitions (first connect / last disconnect semantics)
+  - conversation join/leave authorization behavior
+  - `message:send` handler: success and failure paths
 - **Integration tests**
-  - Two users in same conversation receive `message:new`
+  - Direct and group conversations can both join/send through rooms
   - Non-participant cannot join/send
-  - Reconnect + `messages:sync` returns missed messages correctly
-  - Multi-instance emit correctness with Redis adapter
-- **Load/soak checks**
-  - Connection churn and sustained messaging rate
-  - Validate no duplicate emit on reconnect and correct ack latency
+  - Redis adapter wiring is attached correctly
 - **Acceptance criteria**
-  - Persist-first guarantee respected (no `message:new` before DB write)
-  - Presence accuracy under multi-instance deployment
+  - Persist-first guarantee is preserved
   - Existing REST chat flows remain unaffected
+  - Workspace test suite remains green
 
-### Assumptions and Defaults
-- MVP uses **direct chat-service websocket endpoint**.
-- Delivery semantic is **persist-first then emit**.
-- Presence is included in MVP; typing/read receipts are deferred.
-- Gateway websocket proxy is explicitly deferred to phase 2.
+### Final Phase 1 Status
+- Websocket connections terminate at `chat-service`
+- Delivery semantics are persist first, then emit
+- Gateway websocket proxy is not part of this phase
+- Presence and other realtime UX features remain deferred
