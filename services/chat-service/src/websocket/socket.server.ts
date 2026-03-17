@@ -6,6 +6,7 @@ import { logger } from '@/utils/logger';
 import { authenticateSocket } from '@/websocket/socket-auth';
 
 let ioServer: SocketIOServer | null = null;
+const userRoom = (userId: string) => `user:${userId}`;
 
 export const startSocketServer = (httpServer: HttpServer): SocketIOServer => {
     if (ioServer) {
@@ -31,11 +32,13 @@ export const startSocketServer = (httpServer: HttpServer): SocketIOServer => {
     });
 
     ioServer.on('connection', (socket) => {
-        logger.info({ socketId: socket.id, userId: socket.data.user.id }, 'Socket connected');
+        const room = userRoom(socket.data.user.id);
+        socket.join(room);
+        logger.info({ socketId: socket.id, userId: socket.data.user.id, room }, 'Socket connected');
 
         socket.on('disconnect', (reason) => {
             logger.info(
-                { socketId: socket.id, userId: socket.data.user.id, reason },
+                { socketId: socket.id, userId: socket.data.user.id, room, reason },
                 'Socket disconnected',
             );
         });
@@ -54,3 +57,5 @@ export const closeSocketServer = async (): Promise<void> => {
     ioServer = null;
     logger.info('Socket server closed');
 };
+
+export { userRoom };

@@ -62,6 +62,7 @@ describe('socket server bootstrap', () => {
         expect(ioHandlers.has('connection')).toBe(true);
         expect(middlewareHandler).toBeTypeOf('function');
 
+        const join = vi.fn();
         const socket = {
             id: 'socket-1',
             data: {},
@@ -69,6 +70,7 @@ describe('socket server bootstrap', () => {
                 auth: { token: 'token' },
                 headers: {},
             },
+            join,
             on: (event: string, handler: (...args: unknown[]) => void) => {
                 socketHandlers.set(event, handler);
             },
@@ -89,15 +91,22 @@ describe('socket server bootstrap', () => {
         const connectionHandler = ioHandlers.get('connection');
         connectionHandler?.(socket);
 
+        expect(join).toHaveBeenCalledWith('user:user-1');
+
         expect(loggerMocks.info).toHaveBeenCalledWith(
-            { socketId: 'socket-1', userId: 'user-1' },
+            { socketId: 'socket-1', userId: 'user-1', room: 'user:user-1' },
             'Socket connected',
         );
 
         socketHandlers.get('disconnect')?.('transport close');
 
         expect(loggerMocks.info).toHaveBeenCalledWith(
-            { socketId: 'socket-1', userId: 'user-1', reason: 'transport close' },
+            {
+                socketId: 'socket-1',
+                userId: 'user-1',
+                room: 'user:user-1',
+                reason: 'transport close',
+            },
             'Socket disconnected',
         );
     });

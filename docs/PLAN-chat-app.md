@@ -136,8 +136,10 @@ Implement websocket connectivity for users directly to `chat-service` with **per
   - socket handshake now requires a valid JWT
   - token is accepted from socket auth payload or `Authorization` header
   - authenticated user context is attached to the socket before handlers run
+- Step 3 completed:
+  - authenticated sockets now auto-join `user:{userId}`
+  - connection logs include the user room name explicitly
 - Remaining Phase 1 steps:
-  - user room join
   - conversation join/leave
   - persist-first `message:send`
   - Redis adapter
@@ -152,6 +154,26 @@ Implement websocket connectivity for users directly to `chat-service` with **per
   - `socket.auth.token`
   - `Authorization: Bearer <token>` in handshake headers
 - Invalid or missing tokens are rejected during the handshake.
+
+### Room Naming
+- Per-user room:
+  - `user:{userId}`
+- Conversation room:
+  - `conversation:{conversationId}` (next step)
+
+### What A Socket Means Here
+- A socket is one active client connection to the Socket.IO server.
+- Examples:
+  - one browser tab = one socket
+  - another browser tab = another socket
+  - one mobile app session = another socket
+- One user can have multiple sockets at the same time across tabs and devices.
+
+### Why `user:{userId}` Exists
+- After authentication, each socket joins `user:{userId}`.
+- If the same user connects from another device or tab, that new socket also joins the same room.
+- This gives the server one stable target for user-specific events.
+- Emitting to `user:{userId}` sends the event to all active sockets for that user, which is how multi-device sync works.
 
 ### MVP Features (Supported) and Extension Path
 - **MVP supported**
