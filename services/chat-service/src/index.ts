@@ -5,6 +5,7 @@ import { logger } from '@/utils/logger';
 import { closeMongoClient, getMongoClient } from '@/clients/mongo.client';
 import { closeRedis, connectRedis } from '@/clients/redis.client';
 import { startConsumers, stopConsumers } from '@/messaging/rabbitmq.consumer';
+import { closeSocketServer, startSocketServer } from '@/websocket/socket.server';
 
 const main = async () => {
     try {
@@ -12,6 +13,7 @@ const main = async () => {
 
         const app = createApp();
         const server = createServer(app);
+        await startSocketServer(server);
 
         const port = env.PORT ?? env.CHAT_SERVICE_PORT;
 
@@ -21,6 +23,7 @@ const main = async () => {
 
         const shutdown = async () => {
             logger.info('Shutting down chat service...');
+            await closeSocketServer();
             await new Promise<void>((resolve) => {
                 server.close(() => resolve());
             });
