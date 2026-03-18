@@ -10,6 +10,7 @@
     "build": "tsc --project tsconfig.json && tsc-alias -p tsconfig.json --resolve-full-paths",
     "dev": "tsx watch src/index.ts",
     "start": "node dist/index.js",
+    "socket:manual": "tsx scripts/manual-socket-client.ts",
     "lint": "eslint \"src/**/*.ts\"",
     "typecheck": "tsc --noEmit --project tsconfig.json",
     "test": "vitest run",
@@ -40,6 +41,7 @@
     "@types/express": "^5.0.6",
     "@types/helmet": "^4.0.0",
     "@types/jsonwebtoken": "^9.0.10",
+    "socket.io-client": "^4.8.3",
     "testcontainers": "^10.28.0",
     "tsc-alias": "^1.8.16",
     "vitest": "^3.2.4"

@@ -8,6 +8,9 @@ import { registerRoutes } from './routes';
 
 export const createApp = (): Application => {
     const app = express();
+    const internalAuthMiddleware = createInternalAuthMiddleware(env.INTERNAL_API_TOKEN, {
+        exemptPaths: ['/health'],
+    });
 
     app.use(helmet());
     app.use(
@@ -19,11 +22,14 @@ export const createApp = (): Application => {
 
     app.use(express.json());
     app.use(express.urlencoded({ extended: true }));
-    app.use(
-        createInternalAuthMiddleware(env.INTERNAL_API_TOKEN, {
-            exemptPaths: ['/health'],
-        }),
-    );
+    app.use((req, res, next) => {
+        if (req.path.startsWith('/socket.io')) {
+            next();
+            return;
+        }
+
+        internalAuthMiddleware(req, res, next);
+    });
 
     registerRoutes(app);
 
