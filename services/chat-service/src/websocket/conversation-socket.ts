@@ -15,6 +15,26 @@ const messageSendSchema = z.object({
     clientMessageId: z.string().min(1).max(128).optional(),
 });
 
+const toMessageErrorContext = (payload: unknown): {
+    conversationId?: string;
+    clientMessageId?: string;
+} => {
+    if (!payload || typeof payload !== 'object') {
+        return {};
+    }
+
+    const rawPayload = payload as Record<string, unknown>;
+
+    return {
+        ...(typeof rawPayload.conversationId === 'string'
+            ? { conversationId: rawPayload.conversationId }
+            : {}),
+        ...(typeof rawPayload.clientMessageId === 'string'
+            ? { clientMessageId: rawPayload.clientMessageId }
+            : {}),
+    };
+};
+
 const conversationRoom = (conversationId: string) => `conversation:${conversationId}`;
 
 export const registerConversationSocketHandlers = (socket: Socket): void => {
@@ -78,6 +98,7 @@ export const registerConversationSocketHandlers = (socket: Socket): void => {
 
     socket.on('message:send', async (payload, acknowledge) => {
         const parsedPayload = messageSendSchema.safeParse(payload);
+        const errorContext = toMessageErrorContext(payload);
 
         try {
             const { conversationId, body, clientMessageId } = messageSendSchema.parse(payload);
@@ -114,7 +135,9 @@ export const registerConversationSocketHandlers = (socket: Socket): void => {
                 {
                     socketId: socket.id,
                     userId: socket.data.user?.id,
-                    conversationId: parsedPayload.success ? parsedPayload.data.conversationId : undefined,
+                    conversationId: parsedPayload.success
+                        ? parsedPayload.data.conversationId
+                        : errorContext.conversationId,
                     err: error,
                 },
                 'Failed to send realtime message',
@@ -122,10 +145,16 @@ export const registerConversationSocketHandlers = (socket: Socket): void => {
 
             const errorPayload = {
                 error: message,
-                ...(parsedPayload.success ? { conversationId: parsedPayload.data.conversationId } : {}),
+                ...(parsedPayload.success
+                    ? { conversationId: parsedPayload.data.conversationId }
+                    : errorContext.conversationId
+                        ? { conversationId: errorContext.conversationId }
+                        : {}),
                 ...(parsedPayload.success && parsedPayload.data.clientMessageId
                     ? { clientMessageId: parsedPayload.data.clientMessageId }
-                    : {}),
+                    : errorContext.clientMessageId
+                        ? { clientMessageId: errorContext.clientMessageId }
+                        : {}),
             };
 
             socket.emit('message:error', errorPayload);

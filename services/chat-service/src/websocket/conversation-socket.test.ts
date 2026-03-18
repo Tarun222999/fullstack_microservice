@@ -219,4 +219,88 @@ describe('conversation socket handlers', () => {
             error: 'Failed to send message',
         });
     });
+
+    it('rejects message:send when conversationId is not a valid uuid', async () => {
+        const socket = createSocket();
+        registerConversationSocketHandlers(socket as never);
+
+        const acknowledge = vi.fn();
+        await socketHandlers.get('message:send')?.(
+            {
+                conversationId: 'invalid-id',
+                body: 'Hello there',
+                clientMessageId: 'client-1',
+            },
+            acknowledge,
+        );
+
+        expect(messageServiceMocks.createMessage).not.toHaveBeenCalled();
+        expect(socket.emit).toHaveBeenCalledWith('message:error', {
+            conversationId: 'invalid-id',
+            clientMessageId: 'client-1',
+            error: 'Failed to send message',
+        });
+        expect(acknowledge).toHaveBeenCalledWith({
+            ok: false,
+            conversationId: 'invalid-id',
+            clientMessageId: 'client-1',
+            error: 'Failed to send message',
+        });
+    });
+
+    it('rejects message:send when body is empty', async () => {
+        const socket = createSocket();
+        registerConversationSocketHandlers(socket as never);
+
+        const acknowledge = vi.fn();
+        await socketHandlers.get('message:send')?.(
+            {
+                conversationId: '7af7345f-5419-47f1-b1a3-f25e31e0f1e4',
+                body: '',
+                clientMessageId: 'client-1',
+            },
+            acknowledge,
+        );
+
+        expect(messageServiceMocks.createMessage).not.toHaveBeenCalled();
+        expect(socket.emit).toHaveBeenCalledWith('message:error', {
+            conversationId: '7af7345f-5419-47f1-b1a3-f25e31e0f1e4',
+            clientMessageId: 'client-1',
+            error: 'Failed to send message',
+        });
+        expect(acknowledge).toHaveBeenCalledWith({
+            ok: false,
+            conversationId: '7af7345f-5419-47f1-b1a3-f25e31e0f1e4',
+            clientMessageId: 'client-1',
+            error: 'Failed to send message',
+        });
+    });
+
+    it('rejects message:send when body or clientMessageId exceed limits', async () => {
+        const socket = createSocket();
+        registerConversationSocketHandlers(socket as never);
+
+        const acknowledge = vi.fn();
+        await socketHandlers.get('message:send')?.(
+            {
+                conversationId: '7af7345f-5419-47f1-b1a3-f25e31e0f1e4',
+                body: 'a'.repeat(4_001),
+                clientMessageId: 'c'.repeat(129),
+            },
+            acknowledge,
+        );
+
+        expect(messageServiceMocks.createMessage).not.toHaveBeenCalled();
+        expect(socket.emit).toHaveBeenCalledWith('message:error', {
+            conversationId: '7af7345f-5419-47f1-b1a3-f25e31e0f1e4',
+            clientMessageId: 'c'.repeat(129),
+            error: 'Failed to send message',
+        });
+        expect(acknowledge).toHaveBeenCalledWith({
+            ok: false,
+            conversationId: '7af7345f-5419-47f1-b1a3-f25e31e0f1e4',
+            clientMessageId: 'c'.repeat(129),
+            error: 'Failed to send message',
+        });
+    });
 });

@@ -266,7 +266,7 @@ Implement websocket connectivity for users directly to `chat-service` with a lea
 - Typing indicators
 - Read receipts
 - Unread counts
-- Reconnect sync over websocket
+- websocket-based reconnect sync
 - Rate limiting
 - Payload size limits
 - Heartbeat/ping hardening

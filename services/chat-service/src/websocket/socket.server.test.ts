@@ -4,7 +4,7 @@ const socketHandlers = new Map<string, (...args: unknown[]) => void>();
 const ioHandlers = new Map<string, (...args: unknown[]) => void>();
 let middlewareHandler: ((...args: unknown[]) => void) | undefined;
 
-const closeMock = vi.fn().mockResolvedValue(undefined);
+const closeMock = vi.hoisted(() => vi.fn().mockResolvedValue(undefined));
 const loggerMocks = vi.hoisted(() => ({
     info: vi.fn(),
     error: vi.fn(),
@@ -157,5 +157,13 @@ describe('socket server bootstrap', () => {
 
         expect(next).toHaveBeenCalledWith(expect.any(Error));
         expect((next.mock.calls[0][0] as Error).message).toBe('Unauthorized');
+    });
+
+    it('cleans up the local socket server when adapter attach fails', async () => {
+        const httpServer = {} as never;
+        adapterMocks.attachSocketRedisAdapter.mockRejectedValueOnce(new Error('adapter failed'));
+
+        await expect(startSocketServer(httpServer)).rejects.toThrow('adapter failed');
+        expect(closeMock).toHaveBeenCalledTimes(1);
     });
 });

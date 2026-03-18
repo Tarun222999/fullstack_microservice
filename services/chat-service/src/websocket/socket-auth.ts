@@ -1,13 +1,15 @@
 import jwt from 'jsonwebtoken';
-import { HttpError, type AuthenticatedUser } from '@chatapp/common';
+import { HttpError, type AuthenticatedUser, z } from '@chatapp/common';
 import type { Socket } from 'socket.io';
 
 import { env } from '@/config/env';
 
-interface AccessTokenClaims {
-    sub: string;
-    email?: string;
-}
+const accessTokenClaimsSchema = z.object({
+    sub: z.string().min(1),
+    email: z.string().optional(),
+});
+
+type AccessTokenClaims = z.infer<typeof accessTokenClaimsSchema>;
 
 const parseAuthorizationHeader = (value: string | undefined): string => {
     if (!value) {
@@ -24,10 +26,6 @@ const parseAuthorizationHeader = (value: string | undefined): string => {
 };
 
 const toAuthenticatedUser = (claims: AccessTokenClaims): AuthenticatedUser => {
-    if (!claims.sub) {
-        throw new HttpError(401, 'Unauthorized');
-    }
-
     return {
         id: claims.sub,
         email: claims.email,
@@ -51,7 +49,8 @@ const getAuthToken = (socket: Socket): string => {
 export const authenticateSocket = (socket: Socket): AuthenticatedUser => {
     try {
         const token = getAuthToken(socket);
-        const claims = jwt.verify(token, env.JWT_SECRET) as AccessTokenClaims;
+        const decoded = jwt.verify(token, env.JWT_SECRET);
+        const claims = accessTokenClaimsSchema.parse(decoded);
         return toAuthenticatedUser(claims);
     } catch (error) {
         if (error instanceof HttpError) {

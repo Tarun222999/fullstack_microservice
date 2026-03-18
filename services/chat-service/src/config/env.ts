@@ -11,6 +11,7 @@ const envSchema = z.object({
     RABBITMQ_URL: z.string().url(),
     REDIS_URL: z.string().url(),
     MONGO_URL: z.string().url(),
+    CHAT_SOCKET_ALLOWED_ORIGINS: z.string().default('http://localhost:3000,http://localhost:5173,http://localhost:4173'),
     CONSUMER_DEDUPE_ENABLED: z.coerce.boolean().default(true),
     CONSUMER_LOCK_TIMEOUT_MS: z.coerce.number().int().min(1_000).max(600_000).default(30_000),
 })

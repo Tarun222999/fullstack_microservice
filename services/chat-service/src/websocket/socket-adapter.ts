@@ -14,10 +14,18 @@ const ensureAdapterClients = async (): Promise<{ pubClient: Redis; subClient: Re
     }
 
     const baseClient = getRedisClient();
-    pubClient = baseClient.duplicate();
-    subClient = baseClient.duplicate();
+    const tempPubClient = baseClient.duplicate();
+    const tempSubClient = baseClient.duplicate();
 
-    await Promise.all([pubClient.connect(), subClient.connect()]);
+    try {
+        await Promise.all([tempPubClient.connect(), tempSubClient.connect()]);
+    } catch (error) {
+        await Promise.allSettled([tempPubClient.quit(), tempSubClient.quit()]);
+        throw error;
+    }
+
+    pubClient = tempPubClient;
+    subClient = tempSubClient;
 
     logger.info('Socket Redis adapter clients connected');
     return { pubClient, subClient };
@@ -35,7 +43,17 @@ export const closeSocketRedisAdapter = async (): Promise<void> => {
         return;
     }
 
-    await Promise.all(clients.map(async (client) => client.quit()));
+    const results = await Promise.allSettled(clients.map(async (client) => client.quit()));
+
+    results.forEach((result, index) => {
+        if (result.status === 'rejected') {
+            logger.warn(
+                { err: result.reason, client: index === 0 ? 'pubClient' : 'subClient' },
+                'Failed to close socket Redis adapter client cleanly',
+            );
+        }
+    });
+
     pubClient = null;
     subClient = null;
     logger.info('Socket Redis adapter clients closed');
