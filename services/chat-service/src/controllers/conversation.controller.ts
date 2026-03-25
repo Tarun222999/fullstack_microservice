@@ -87,6 +87,7 @@ export const listMessageHandler: RequestHandler = asyncHandler(async (req, res) 
     const after = query.after ? new Date(query.after) : undefined;
     const messages = await messageService.listMessages(conversationId, user.id, {
         limit: query.limit,
+        beforeMessageId: query.before,
         after,
     });
     res.json({ data: messages });

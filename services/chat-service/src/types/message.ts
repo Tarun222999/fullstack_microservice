@@ -21,6 +21,7 @@ export interface CreateMessageInput {
 
 export interface MessageListOptions {
     limit?: number;
+    beforeMessageId?: string;
     after?: Date;
 }
 

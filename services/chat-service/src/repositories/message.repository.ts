@@ -8,6 +8,13 @@ import { getMongoClient } from '@/clients/mongo.client';
 
 const MESSAGES_COLLECTION = 'messages';
 
+interface MessageRepositoryListOptions extends Omit<MessageListOptions, 'beforeMessageId'> {
+    before?: {
+        id: string;
+        createdAt: Date;
+    };
+}
+
 
 const toMessage = (doc: WithId<Document>): Message => ({
     id: String(doc._id),
@@ -46,13 +53,24 @@ export const messageRepository = {
 
     async findByConversation(
         conversationId: string,
-        options: MessageListOptions = {},
+        options: MessageRepositoryListOptions = {},
     ): Promise<Message[]> {
         const client = await getMongoClient();
         const db = client.db();
         const query: Record<string, unknown> = {
             conversationId,
         };
+        if (options.before) {
+            query.$or = [
+                {
+                    createdAt: { $lt: options.before.createdAt },
+                },
+                {
+                    createdAt: options.before.createdAt,
+                    _id: { $lt: options.before.id },
+                },
+            ];
+        }
         if (options.after) {
             query.createdAt = { $gt: options.after };
         }
@@ -60,7 +78,7 @@ export const messageRepository = {
         const cursor = db
             .collection(MESSAGES_COLLECTION)
             .find(query)
-            .sort({ createdAt: -1 })
+            .sort({ createdAt: -1, _id: -1 })
             .limit(options.limit ?? 50);
 
         const messages = await cursor.toArray();

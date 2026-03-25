@@ -1,4 +1,4 @@
-import { HttpError } from '@chatapp/common';
+import { HttpError, USER_ID_HEADER } from '@chatapp/common';
 import axios from 'axios';
 
 import { env } from '@/config/env';
@@ -23,12 +23,25 @@ export interface UserDto {
     updatedAt: string;
 }
 
+export interface UserSummaryDto {
+    id: string;
+    displayName: string;
+}
+
 export interface UserResponse {
     data: UserDto;
 }
 
 export interface UserLisResponse {
     data: UserDto[];
+}
+
+export interface UserSummaryListResponse {
+    data: UserSummaryDto[];
+}
+
+export interface GetUsersByIdsPayload {
+    ids: string[];
 }
 
 export interface CreateUserPayload {
@@ -80,6 +93,31 @@ export const userProxyService = {
     async getAllUsers(): Promise<UserLisResponse> {
         try {
             const response = await client.get<UserLisResponse>(`/users`, authHeader);
+            return response.data;
+        } catch (error) {
+            return handleAxiosError(error);
+        }
+    },
+
+    async getUsersByIds(payload: GetUsersByIdsPayload): Promise<UserSummaryListResponse> {
+        try {
+            const response = await client.post<UserSummaryListResponse>(`/users/by-ids`, payload, {
+                headers: authHeader.headers,
+            });
+            return response.data;
+        } catch (error) {
+            return handleAxiosError(error);
+        }
+    },
+
+    async getDmCandidates(userId: string): Promise<UserSummaryListResponse> {
+        try {
+            const response = await client.get<UserSummaryListResponse>(`/users/dm-candidates`, {
+                headers: {
+                    ...authHeader.headers,
+                    [USER_ID_HEADER]: userId,
+                },
+            });
             return response.data;
         } catch (error) {
             return handleAxiosError(error);
