@@ -9,6 +9,8 @@ export const userIdParamsSchema = z.object({
     id: z.string().uuid(),
 });
 
+export const dmCandidatesQuerySchema = z.object({});
+
 const excludeSchema = z.union([
     z.array(z.string().uuid()),
     z

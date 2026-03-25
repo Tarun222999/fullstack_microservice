@@ -1,6 +1,6 @@
 import { Op, Transaction, type WhereOptions } from 'sequelize';
 
-import type { CreateUserInput, User } from '@/types/user';
+import type { CreateUserInput, GetUsersByIdsInput, User, UserSummary } from '@/types/user';
 import type { AuthUserRegisteredPayload } from '@chatapp/common';
 
 import { UserModel } from '@/db';
@@ -15,6 +15,10 @@ const toDomainUser = (model: UserModel): User => ({
     updatedAt: model.updatedAt,
 })
 
+const toUserSummary = (model: UserModel): UserSummary => ({
+    id: model.id,
+    displayName: model.displayName,
+})
 
 export class UserRepository {
     async findById(id: string): Promise<User | null> {
@@ -27,6 +31,38 @@ export class UserRepository {
             order: [['displayName', 'ASC']],
         })
         return users.map(toDomainUser)
+    }
+
+    async findAllExcept(excludeId: string): Promise<UserSummary[]> {
+        const users = await UserModel.findAll({
+            where: {
+                id: {
+                    [Op.ne]: excludeId,
+                },
+            },
+            order: [['displayName', 'ASC']],
+        });
+
+        return users.map(toUserSummary);
+    }
+
+    async findByIds(ids: GetUsersByIdsInput['ids']): Promise<UserSummary[]> {
+        const uniqueIds = Array.from(new Set(ids));
+
+        if (uniqueIds.length === 0) {
+            return [];
+        }
+
+        const users = await UserModel.findAll({
+            where: {
+                id: {
+                    [Op.in]: uniqueIds,
+                },
+            },
+            order: [['displayName', 'ASC']],
+        });
+
+        return users.map(toUserSummary);
     }
 
     async create(data: CreateUserInput, transaction?: Transaction): Promise<User> {

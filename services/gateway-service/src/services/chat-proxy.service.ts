@@ -46,6 +46,10 @@ export interface ConversationDto {
     kind: 'direct' | 'group';
     title: string | null;
     participantIds: string[];
+    participants?: Array<{
+        id: string;
+        displayName: string;
+    }>;
     createdAt: string;
     updatedAt: string;
     lastMessageAt: string | null;
@@ -174,7 +178,7 @@ export const chatProxyService = {
     async listMessages(
         conversationId: string,
         userId: string,
-        query: { limit?: number; after?: string },
+        query: { limit?: number; before?: string; after?: string },
     ): Promise<MessageDto[]> {
         try {
             const response = await client.get<MessageListResponse>(

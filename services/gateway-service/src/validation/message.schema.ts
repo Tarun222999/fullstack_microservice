@@ -11,5 +11,6 @@ export const listMessagesQuerySchema = z.object({
             z.number().int().min(1).max(200),
         )
         .optional(),
+    before: z.string().uuid().optional(),
     after: z.string().datetime().optional(),
 });

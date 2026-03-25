@@ -36,6 +36,23 @@ export const messageService = {
             throw new HttpError(403, 'Requester is not part of this conversation');
         }
 
-        return messageRepository.findByConversation(conversationId, options);
+        let beforeCursor: { id: string; createdAt: Date } | undefined;
+        if (options.beforeMessageId) {
+            const cursorMessage = await messageRepository.findById(options.beforeMessageId);
+            if (!cursorMessage || cursorMessage.conversationId !== conversationId) {
+                throw new HttpError(404, 'Message cursor not found');
+            }
+
+            beforeCursor = {
+                id: cursorMessage.id,
+                createdAt: cursorMessage.createdAt,
+            };
+        }
+
+        return messageRepository.findByConversation(conversationId, {
+            limit: options.limit,
+            after: beforeCursor ? undefined : options.after,
+            before: beforeCursor,
+        });
     },
 };

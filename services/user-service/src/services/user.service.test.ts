@@ -5,6 +5,8 @@ import { UniqueConstraintError } from 'sequelize';
 const repositoryMocks = vi.hoisted(() => ({
     findById: vi.fn(),
     findAll: vi.fn(),
+    findAllExcept: vi.fn(),
+    findByIds: vi.fn(),
     create: vi.fn(),
     searchByQuery: vi.fn(),
     upsertFromAuthEvent: vi.fn(),
@@ -153,6 +155,47 @@ describe('userService', () => {
             limit: 5,
             excludeIds: ['deadbeef-0000-0000-0000-000000000001'],
         });
+    });
+
+    it('returns DM candidates excluding the current user', async () => {
+        const users = [
+            {
+                id: '4b41d2de-6fd0-4d62-a17c-d43765434a74',
+                displayName: 'Alpha',
+            },
+        ];
+        repositoryMocks.findAllExcept.mockResolvedValue(users);
+
+        const result = await userService.getDmCandidates('deadbeef-0000-0000-0000-000000000001');
+
+        expect(result).toEqual(users);
+        expect(repositoryMocks.findAllExcept).toHaveBeenCalledWith(
+            'deadbeef-0000-0000-0000-000000000001',
+        );
+    });
+
+    it('returns users by ids for hydration', async () => {
+        const users = [
+            {
+                id: '4b41d2de-6fd0-4d62-a17c-d43765434a74',
+                displayName: 'Alpha',
+            },
+            {
+                id: '5c2f1d8a-5d27-4ca3-a7af-3a9c2c2c2c2c',
+                displayName: 'Beta',
+            },
+        ];
+        repositoryMocks.findByIds.mockResolvedValue(users);
+
+        const result = await userService.getUsersByIds({
+            ids: ['5c2f1d8a-5d27-4ca3-a7af-3a9c2c2c2c2c', '4b41d2de-6fd0-4d62-a17c-d43765434a74'],
+        });
+
+        expect(result).toEqual(users);
+        expect(repositoryMocks.findByIds).toHaveBeenCalledWith([
+            '5c2f1d8a-5d27-4ca3-a7af-3a9c2c2c2c2c',
+            '4b41d2de-6fd0-4d62-a17c-d43765434a74',
+        ]);
     });
 
     it('syncs auth user and republishes event payload', async () => {

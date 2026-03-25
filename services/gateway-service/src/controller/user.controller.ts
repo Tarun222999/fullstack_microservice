@@ -27,6 +27,16 @@ export const getAllUsers: AsyncHandler = async (req, res, next) => {
     }
 };
 
+export const getDmCandidates: AsyncHandler = async (req, res, next) => {
+    try {
+        const user = getAuthenticatedUser(req);
+        const response = await userProxyService.getDmCandidates(user.id);
+        res.json(response);
+    } catch (error) {
+        next(error);
+    }
+};
+
 export const createUser: AsyncHandler = async (req, res, next) => {
     try {
         const payload = createUserSchema.parse(req.body);

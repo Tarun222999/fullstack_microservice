@@ -2,7 +2,7 @@ import { env } from "@/config/env";
 import { enqueueOutboxEvent, sequelize } from "@/db";
 import { publishUserCreatedEvent } from "@/messaging/event-publisher";
 import { userRepository, UserRepository } from "@/repository/user.repositories";
-import { CreateUserInput, User } from "@/types/user";
+import { CreateUserInput, GetUsersByIdsInput, User, UserSummary } from "@/types/user";
 import { AuthUserRegisteredPayload, HttpError, USER_CREATED_ROUTING_KEY, USER_EVENTS_EXCHANGE } from "@chatapp/common";
 import { logger } from "@/utils/logger";
 import { UniqueConstraintError } from "sequelize";
@@ -103,6 +103,14 @@ class UserService {
     }
     async getAllUsers(): Promise<User[]> {
         return this.repository.findAll();
+    }
+
+    async getDmCandidates(userId: string): Promise<UserSummary[]> {
+        return this.repository.findAllExcept(userId);
+    }
+
+    async getUsersByIds(input: GetUsersByIdsInput): Promise<UserSummary[]> {
+        return this.repository.findByIds(input.ids);
     }
 
     async syncFromAuthUser(payload: AuthUserRegisteredPayload): Promise<User> {

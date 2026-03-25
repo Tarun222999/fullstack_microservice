@@ -1,6 +1,6 @@
 import { userService } from '@/services/user.service';
-import { CreateUserBody, SearchUsersQuery, UserIdParams } from '@/validation/user.schema';
-import type { AsyncHandler } from '@chatapp/common';
+import { CreateUserBody, GetUsersByIdsBody, SearchUsersQuery, UserIdParams, getUsersByIdsSchema } from '@/validation/user.schema';
+import { HttpError, USER_ID_HEADER, type AsyncHandler } from '@chatapp/common';
 
 export const getUser: AsyncHandler = async (req, res, next) => {
     try {
@@ -15,6 +15,29 @@ export const getUser: AsyncHandler = async (req, res, next) => {
 export const getAllUsers: AsyncHandler = async (req, res, next) => {
     try {
         const users = await userService.getAllUsers();
+        res.json({ data: users });
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const getDmCandidates: AsyncHandler = async (req, res, next) => {
+    try {
+        const userIdHeader = req.header(USER_ID_HEADER);
+        if (!userIdHeader) {
+            throw new HttpError(400, 'Missing user context');
+        }
+        const users = await userService.getDmCandidates(String(userIdHeader));
+        res.json({ data: users });
+    } catch (error) {
+        next(error);
+    }
+};
+
+export const getUsersByIds: AsyncHandler = async (req, res, next) => {
+    try {
+        const payload = getUsersByIdsSchema.parse(req.body) as GetUsersByIdsBody;
+        const users = await userService.getUsersByIds(payload);
         res.json({ data: users });
     } catch (error) {
         next(error);

@@ -9,6 +9,10 @@ export const userIdParamsSchema = z.object({
     id: z.string().uuid()
 })
 
+export const getUsersByIdsSchema = z.object({
+    ids: z.array(z.string().uuid()).min(1).max(100),
+})
+
 const excludeSchema = z.union([
     z.array(z.string().uuid()),
     z
@@ -35,3 +39,4 @@ export const searchUsersQuerySchema = z.object({
 export type SearchUsersQuery = z.infer<typeof searchUsersQuerySchema>
 export type CreateUserBody = z.infer<typeof createUserSchema>
 export type UserIdParams = z.infer<typeof userIdParamsSchema>
+export type GetUsersByIdsBody = z.infer<typeof getUsersByIdsSchema>

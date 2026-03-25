@@ -4,6 +4,7 @@ import { HttpError } from '@chatapp/common';
 const messageRepositoryMocks = vi.hoisted(() => ({
     create: vi.fn(),
     findByConversation: vi.fn(),
+    findById: vi.fn(),
 }));
 
 const conversationServiceMocks = vi.hoisted(() => ({
@@ -121,6 +122,49 @@ describe('messageService', () => {
         expect(messageRepositoryMocks.findByConversation).toHaveBeenCalledWith(
             '7af7345f-5419-47f1-b1a3-f25e31e0f1e4',
             { limit: 20 },
+        );
+    });
+
+    it('resolves before cursor and requests older messages deterministically', async () => {
+        conversationServiceMocks.getConversationById.mockResolvedValue({
+            id: '7af7345f-5419-47f1-b1a3-f25e31e0f1e4',
+            title: 'Dev chat',
+            participantIds: ['dc40ca49-b0f2-4b27-a771-5fda47d1d66f'],
+            createdAt: new Date('2026-01-01T00:00:00.000Z'),
+            updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+            lastMessageAt: null,
+            lastMessagePreview: null,
+        });
+
+        messageRepositoryMocks.findByConversation.mockResolvedValue([]);
+        messageRepositoryMocks.findById.mockResolvedValue({
+            id: '11111111-2222-3333-4444-555555555555',
+            conversationId: '7af7345f-5419-47f1-b1a3-f25e31e0f1e4',
+            senderId: 'dc40ca49-b0f2-4b27-a771-5fda47d1d66f',
+            body: 'Hello team',
+            createdAt: new Date('2026-01-01T00:01:00.000Z'),
+            reactions: [],
+        });
+
+        await messageService.listMessages(
+            '7af7345f-5419-47f1-b1a3-f25e31e0f1e4',
+            'dc40ca49-b0f2-4b27-a771-5fda47d1d66f',
+            {
+                limit: 20,
+                beforeMessageId: '11111111-2222-3333-4444-555555555555',
+            },
+        );
+
+        expect(messageRepositoryMocks.findByConversation).toHaveBeenCalledWith(
+            '7af7345f-5419-47f1-b1a3-f25e31e0f1e4',
+            {
+                limit: 20,
+                after: undefined,
+                before: {
+                    id: '11111111-2222-3333-4444-555555555555',
+                    createdAt: new Date('2026-01-01T00:01:00.000Z'),
+                },
+            },
         );
     });
 
