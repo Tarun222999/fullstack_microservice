@@ -59,7 +59,7 @@ export const searchUsers: AsyncHandler = async (req, res, next) => {
             limit,
             exclude: sanitizedExclude,
         });
-        res.json({ data: users });
+        res.json(users);
     } catch (error) {
         next(error);
     }
