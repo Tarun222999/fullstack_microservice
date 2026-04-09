@@ -11,7 +11,8 @@ if (hasDeprecatedGatewayPort) {
 const envSchema = z.object({
     NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
     PORT: z.coerce.number().int().min(0).max(65_535).optional(),
-    GATEWAY__PORT: z.coerce.number().int().min(0).max(65_535).default(4000),
+    GATEWAY_PORT: z.coerce.number().int().min(0).max(65_535).default(4000),
+    GATEWAY__PORT: z.coerce.number().int().min(0).max(65_535).optional(),
     AUTH_SERVICE_URL: z.string().url(),
     INTERNAL_API_TOKEN: z.string().min(16),
     USER_SERVICE_URL: z.string().url(),

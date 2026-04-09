@@ -1,6 +1,9 @@
 import request from 'supertest';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import jwt from 'jsonwebtoken';
+import { existsSync, readFileSync } from 'node:fs';
+import path from 'node:path';
+import YAML from 'yaml';
 
 const authProxyMocks = vi.hoisted(() => ({
     register: vi.fn(),
@@ -55,6 +58,22 @@ import { createApp } from '@/app';
 const makeAccessToken = (sub: string) =>
     jwt.sign({ sub, email: 'test@example.com' }, process.env.JWT_SECRET as string);
 
+const openApiSpecCandidates = [
+    path.resolve(process.cwd(), '../../docs/openapi.yaml'),
+    path.resolve(process.cwd(), '../docs/openapi.yaml'),
+    path.resolve(process.cwd(), 'docs/openapi.yaml'),
+];
+
+const resolveOpenApiSpecPath = (): string => {
+    for (const candidate of openApiSpecCandidates) {
+        if (existsSync(candidate)) {
+            return candidate;
+        }
+    }
+
+    return openApiSpecCandidates[0];
+};
+
 const allUsersResponse = {
     data: [
         {
@@ -89,6 +108,32 @@ describe('gateway-service http', () => {
             status: 'ok',
             service: 'gateway-service',
         });
+    });
+
+    it('GET /openapi.yaml returns the published spec', async () => {
+        const app = createApp();
+
+        const response = await request(app).get('/openapi.yaml');
+
+        expect(response.status).toBe(200);
+        expect(response.headers['content-type']).toContain('yaml');
+        expect(response.text.trim()).toBe(readFileSync(resolveOpenApiSpecPath(), 'utf8').trim());
+
+        const parsed = YAML.parse(response.text);
+        expect(parsed.openapi).toBe('3.0.3');
+        expect(parsed.paths['/auth/login']).toBeTruthy();
+        expect(parsed.paths['/conversations/{id}/messages']).toBeTruthy();
+    });
+
+    it('GET /docs serves Swagger UI', async () => {
+        const app = createApp();
+
+        const response = await request(app).get('/docs').redirects(1);
+
+        expect(response.status).toBe(200);
+        expect(response.headers['content-type']).toContain('html');
+        expect(response.text).toContain('ChatApp API Docs');
+        expect(response.text).toContain('swagger-ui-bundle.js');
     });
 
     it('POST /auth/login returns 422 for invalid payload', async () => {
@@ -155,6 +200,34 @@ describe('gateway-service http', () => {
         expect(response.status).toBe(200);
         expect(response.body.data).toHaveLength(1);
         expect(userProxyMocks.getAllUsers).toHaveBeenCalledTimes(1);
+    });
+
+    it('GET /users/search returns data when token is valid', async () => {
+        userProxyMocks.searchUsers.mockResolvedValue({
+            data: [
+                {
+                    id: '936cf6c1-be78-4192-9c77-8f44a84ff6ea',
+                    email: 'target@example.com',
+                    displayName: 'Target',
+                    createdAt: '2026-01-01T00:00:00.000Z',
+                    updatedAt: '2026-01-01T00:00:00.000Z',
+                },
+            ],
+        });
+        const app = createApp();
+        const token = makeAccessToken('dc40ca49-b0f2-4b27-a771-5fda47d1d66f');
+
+        const response = await request(app)
+            .get('/users/search?query=target&limit=5')
+            .set('Authorization', `Bearer ${token}`);
+
+        expect(response.status).toBe(200);
+        expect(response.body.data).toHaveLength(1);
+        expect(userProxyMocks.searchUsers).toHaveBeenCalledWith({
+            query: 'target',
+            limit: 5,
+            exclude: ['dc40ca49-b0f2-4b27-a771-5fda47d1d66f'],
+        });
     });
 
     it('GET /users/dm-candidates returns all other users for the caller', async () => {
@@ -246,6 +319,37 @@ describe('gateway-service http', () => {
         });
     });
 
+    it('POST /conversations returns success with fallback participants when hydration fails', async () => {
+        userProxyMocks.getUsersByIds.mockRejectedValue(new Error('user lookup failed'));
+        chatProxyMocks.createConversation.mockResolvedValue({
+            id: '7af7345f-5419-47f1-b1a3-f25e31e0f1e4',
+            kind: 'group',
+            title: 'Project',
+            participantIds: [
+                'dc40ca49-b0f2-4b27-a771-5fda47d1d66f',
+                '936cf6c1-be78-4192-9c77-8f44a84ff6ea',
+            ],
+            createdAt: '2026-01-01T00:00:00.000Z',
+            updatedAt: '2026-01-01T00:00:00.000Z',
+            lastMessageAt: null,
+            lastMessagePreview: null,
+        });
+        const app = createApp();
+        const token = makeAccessToken('dc40ca49-b0f2-4b27-a771-5fda47d1d66f');
+
+        const response = await request(app)
+            .post('/conversations')
+            .set('Authorization', `Bearer ${token}`)
+            .send({
+                title: 'Project',
+                participantIds: ['936cf6c1-be78-4192-9c77-8f44a84ff6ea'],
+            });
+
+        expect(response.status).toBe(201);
+        expect(response.body.data.participants).toEqual([]);
+        expect(chatProxyMocks.createConversation).toHaveBeenCalledTimes(1);
+    });
+
     it('GET /conversations returns 403 when participantId is another user', async () => {
         const app = createApp();
         const token = makeAccessToken('dc40ca49-b0f2-4b27-a771-5fda47d1d66f');
@@ -318,6 +422,35 @@ describe('gateway-service http', () => {
         });
     });
 
+    it('GET /conversations returns success with fallback participants when hydration fails', async () => {
+        userProxyMocks.getUsersByIds.mockRejectedValue(new Error('user lookup failed'));
+        chatProxyMocks.listConversations.mockResolvedValue([
+            {
+                id: '7af7345f-5419-47f1-b1a3-f25e31e0f1e4',
+                kind: 'direct',
+                title: null,
+                participantIds: [
+                    'dc40ca49-b0f2-4b27-a771-5fda47d1d66f',
+                    '936cf6c1-be78-4192-9c77-8f44a84ff6ea',
+                ],
+                createdAt: '2026-01-01T00:00:00.000Z',
+                updatedAt: '2026-01-01T00:00:00.000Z',
+                lastMessageAt: '2026-01-01T00:02:00.000Z',
+                lastMessagePreview: 'latest',
+            },
+        ]);
+        const app = createApp();
+        const token = makeAccessToken('dc40ca49-b0f2-4b27-a771-5fda47d1d66f');
+
+        const response = await request(app)
+            .get('/conversations')
+            .set('Authorization', `Bearer ${token}`);
+
+        expect(response.status).toBe(200);
+        expect(response.body.data[0].participants).toEqual([]);
+        expect(chatProxyMocks.listConversations).toHaveBeenCalledTimes(1);
+    });
+
     it('GET /conversations/:id hydrates participants for chat detail', async () => {
         userProxyMocks.getUsersByIds.mockResolvedValue({
             data: allUsersResponse.data,
@@ -350,6 +483,33 @@ describe('gateway-service http', () => {
         expect(userProxyMocks.getUsersByIds).toHaveBeenCalledWith({
             ids: ['dc40ca49-b0f2-4b27-a771-5fda47d1d66f', '936cf6c1-be78-4192-9c77-8f44a84ff6ea'],
         });
+    });
+
+    it('GET /conversations/:id returns success with fallback participants when hydration fails', async () => {
+        userProxyMocks.getUsersByIds.mockRejectedValue(new Error('user lookup failed'));
+        chatProxyMocks.getConversation.mockResolvedValue({
+            id: '7af7345f-5419-47f1-b1a3-f25e31e0f1e4',
+            kind: 'direct',
+            title: null,
+            participantIds: [
+                'dc40ca49-b0f2-4b27-a771-5fda47d1d66f',
+                '936cf6c1-be78-4192-9c77-8f44a84ff6ea',
+            ],
+            createdAt: '2026-01-01T00:00:00.000Z',
+            updatedAt: '2026-01-01T00:00:00.000Z',
+            lastMessageAt: '2026-01-01T00:02:00.000Z',
+            lastMessagePreview: 'latest',
+        });
+        const app = createApp();
+        const token = makeAccessToken('dc40ca49-b0f2-4b27-a771-5fda47d1d66f');
+
+        const response = await request(app)
+            .get('/conversations/7af7345f-5419-47f1-b1a3-f25e31e0f1e4')
+            .set('Authorization', `Bearer ${token}`);
+
+        expect(response.status).toBe(200);
+        expect(response.body.data.participants).toEqual([]);
+        expect(chatProxyMocks.getConversation).toHaveBeenCalledTimes(1);
     });
 
     it('POST /direct-conversations returns 401 without auth header', async () => {
@@ -388,6 +548,9 @@ describe('gateway-service http', () => {
     });
 
     it('POST /direct-conversations validates target user and delegates to chat proxy', async () => {
+        userProxyMocks.getUsersByIds.mockResolvedValue({
+            data: allUsersResponse.data,
+        });
         userProxyMocks.getUserById.mockResolvedValue({
             data: {
                 id: '936cf6c1-be78-4192-9c77-8f44a84ff6ea',

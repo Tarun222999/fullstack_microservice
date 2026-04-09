@@ -3,6 +3,7 @@ import type { RequestHandler } from 'express';
 import { type ConversationDto, chatProxyService } from '@/services/chat-proxy.service';
 import { type UserSummaryDto, userProxyService } from '@/services/user-proxy.service';
 import { getAuthenticatedUser } from '@/utils/auth';
+import { logger } from '@/utils/logger';
 import {
     createDirectConversationBodySchema,
     createConversationBodySchema,
@@ -16,6 +17,11 @@ const buildParticipantLookup = (
     users: UserSummaryDto[],
 ): Map<string, { id: string; displayName: string }> =>
     new Map(users.map((user) => [user.id, { id: user.id, displayName: user.displayName }]));
+
+const withEmptyParticipants = (conversation: ConversationDto): ConversationDto => ({
+    ...conversation,
+    participants: [],
+});
 
 const hydrateConversation = (
     conversation: ConversationDto,
@@ -45,6 +51,49 @@ const hydrateConversationList = async (conversations: ConversationDto[]): Promis
     return conversations.map((conversation) => hydrateConversation(conversation, lookup));
 };
 
+const safeHydrateSingleConversation = async (
+    conversation: ConversationDto,
+    context: { userId: string; requestId: string; flow: string },
+): Promise<ConversationDto> => {
+    try {
+        return await hydrateSingleConversation(conversation);
+    } catch (error) {
+        logger.warn(
+            {
+                err: error,
+                userId: context.userId,
+                conversationId: conversation.id,
+                participantCount: conversation.participantIds.length,
+                requestId: context.requestId,
+                flow: context.flow,
+            },
+            'Conversation hydration failed; returning fallback response',
+        );
+        return withEmptyParticipants(conversation);
+    }
+};
+
+const safeHydrateConversationList = async (
+    conversations: ConversationDto[],
+    context: { userId: string; requestId: string; flow: string },
+): Promise<ConversationDto[]> => {
+    try {
+        return await hydrateConversationList(conversations);
+    } catch (error) {
+        logger.warn(
+            {
+                err: error,
+                userId: context.userId,
+                conversationCount: conversations.length,
+                requestId: context.requestId,
+                flow: context.flow,
+            },
+            'Conversation list hydration failed; returning fallback response',
+        );
+        return conversations.map(withEmptyParticipants);
+    }
+};
+
 export const createConversationHandler: RequestHandler = asyncHandler(async (req, res) => {
     const user = getAuthenticatedUser(req);
     const payload = createConversationBodySchema.parse(req.body);
@@ -60,7 +109,13 @@ export const createConversationHandler: RequestHandler = asyncHandler(async (req
         participantIds: uniqueParticipantIds,
     });
 
-    res.status(201).json({ data: await hydrateSingleConversation(conversation) });
+    const hydratedConversation = await safeHydrateSingleConversation(conversation, {
+        userId: user.id,
+        requestId: 'createConversation',
+        flow: 'createConversation',
+    });
+
+    res.status(201).json({ data: hydratedConversation });
 });
 
 export const createDirectConversationHandler: RequestHandler = asyncHandler(async (req, res) => {
@@ -75,7 +130,13 @@ export const createDirectConversationHandler: RequestHandler = asyncHandler(asyn
 
     const conversation = await chatProxyService.createDirectConversation(user.id, payload);
 
-    res.status(200).json({ data: await hydrateSingleConversation(conversation) });
+    const hydratedConversation = await safeHydrateSingleConversation(conversation, {
+        userId: user.id,
+        requestId: 'createDirectConversation',
+        flow: 'createDirectConversation',
+    });
+
+    res.status(200).json({ data: hydratedConversation });
 });
 
 
@@ -89,7 +150,13 @@ export const listConversationsHandler: RequestHandler = asyncHandler(async (req,
     }
 
     const conversations = await chatProxyService.listConversations(user.id);
-    res.json({ data: await hydrateConversationList(conversations) });
+    const hydratedConversations = await safeHydrateConversationList(conversations, {
+        userId: user.id,
+        requestId: 'listConversations',
+        flow: 'listConversations',
+    });
+
+    res.json({ data: hydratedConversations });
 });
 
 
@@ -102,7 +169,13 @@ export const getConversationHandler: RequestHandler = asyncHandler(async (req, r
         throw new HttpError(403, 'You are not a participant in this conversation');
     }
 
-    res.json({ data: await hydrateSingleConversation(conversation) });
+    const hydratedConversation = await safeHydrateSingleConversation(conversation, {
+        userId: user.id,
+        requestId: 'getConversation',
+        flow: 'getConversation',
+    });
+
+    res.json({ data: hydratedConversation });
 });
 
 
