@@ -1,11 +1,14 @@
 import { Router } from "express"
 import { authRouter } from "@/routes/auth.route";
+import { docsRouter } from "@/routes/docs.route";
 import { userRouter } from "@/routes/user.route";
 import { conversationRouter } from "@/routes/conversation.route";
 import { directConversationRouter } from "@/routes/direct-conversation.route";
 
 
 export const registerRoutes = (app: Router) => {
+    app.use(docsRouter)
+
     // Health check endpoint for Docker/K8s
     app.get('/health', (_req, res) => {
         res.status(200).json({ status: 'ok', service: 'gateway-service' });
