@@ -4,7 +4,7 @@
 FROM node:22-alpine AS base
 
 # Install pnpm
-RUN corepack enable && corepack prepare pnpm@10.14.0 --activate
+RUN corepack enable && corepack prepare pnpm@10.28.1 --activate
 
 WORKDIR /app
 
@@ -38,7 +38,7 @@ RUN pnpm --filter gateway-service build
 FROM node:22-alpine AS prodcution
 
 # Install pnpm
-RUN corepack enable && corepack prepare pnpm@10.14.0 --activate
+RUN corepack enable && corepack prepare pnpm@10.28.1 --activate
 
 # Create non-root user 
 RUN addgroup --system --gid 1001 nodejs && \
