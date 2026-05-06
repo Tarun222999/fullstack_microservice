@@ -9,7 +9,7 @@ export const directConversationRouter: Router = Router();
 directConversationRouter.use(requireAuth);
 
 directConversationRouter.post(
-    '/',
-    validateRequest({ body: createDirectConversationBodySchema }),
-    createDirectConversationHandler,
+  '/',
+  validateRequest({ body: createDirectConversationBodySchema }),
+  createDirectConversationHandler,
 );

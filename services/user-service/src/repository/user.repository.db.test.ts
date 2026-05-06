@@ -34,7 +34,6 @@ describe('UserRepository db integration', () => {
             userRepository = new repositoryModule.UserRepository();
             dbRuntimeAvailable = true;
         } catch (error) {
-            dbRuntimeError = error;
             dbRuntimeAvailable = false;
             const message =
                 error instanceof Error ? error.message : 'Unknown container runtime error';
