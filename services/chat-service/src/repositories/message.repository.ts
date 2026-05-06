@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 
-import { type WithId, type Document, ObjectId } from 'mongodb';
+import { type WithId, type Document } from 'mongodb';
 
 import type { Message, MessageListOptions } from '@/types/message';
 

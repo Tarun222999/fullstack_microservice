@@ -7,6 +7,26 @@ export type BeginResult = "acquired" | "duplicate" | "in_progress";
 
 const staleCutoff = () => new Date(Date.now() - env.CONSUMER_LOCK_TIMEOUT_MS);
 
+const isUniqueConstraintError = (error: unknown): boolean => {
+    if (error instanceof UniqueConstraintError) {
+        return true;
+    }
+
+    if (typeof error !== "object" || error === null) {
+        return false;
+    }
+
+    const candidate = error as {
+        name?: string;
+        original?: { code?: string };
+    };
+
+    return (
+        candidate.name === "SequelizeUniqueConstraintError" ||
+        candidate.original?.code === "23505"
+    );
+};
+
 export const beginProcessingEvent = async (
     eventId: string,
     eventType: string,
@@ -25,13 +45,8 @@ export const beginProcessingEvent = async (
             lockedAt: new Date(),
         });
         return "acquired";
-    } catch (error: any) {
-        const isUniqueError =
-            error instanceof UniqueConstraintError ||
-            error?.name === "SequelizeUniqueConstraintError" ||
-            error?.original?.code === "23505";
-
-        if (!isUniqueError) {
+    } catch (error: unknown) {
+        if (!isUniqueConstraintError(error)) {
             throw error;
         }
 

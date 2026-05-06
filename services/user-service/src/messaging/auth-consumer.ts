@@ -1,6 +1,6 @@
 import {
     AUTH_EVENT_EXCHANGE
-    , AUTH_USER_REGISTERED_ROUTING_KEY, AuthUserRegisteredPayload,
+    , AUTH_USER_REGISTERED_ROUTING_KEY,
     type AuthRegisteredEvent
 } from "@chatapp/common";
 

@@ -1,8 +1,6 @@
 import type {
     Message,
     MessageListOptions,
-    AddReactionInput,
-    RemoveReactionInput,
 } from '@/types/message';
 
 import { messageRepository } from '@/repositories/message.repository';

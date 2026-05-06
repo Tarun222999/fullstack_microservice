@@ -34,6 +34,15 @@ export const ensureProcessedEventIndexes = async () => {
 
 const staleCutoff = () => new Date(Date.now() - env.CONSUMER_LOCK_TIMEOUT_MS);
 
+const isMongoDuplicateKeyError = (error: unknown): boolean => {
+    if (typeof error !== "object" || error === null) {
+        return false;
+    }
+
+    const candidate = error as { code?: number };
+    return candidate.code === 11000;
+};
+
 export const beginProcessingEvent = async (
     eventId: string,
     eventType: string,
@@ -59,8 +68,8 @@ export const beginProcessingEvent = async (
             updatedAt: now,
         });
         return "acquired";
-    } catch (error: any) {
-        if (error?.code !== 11000) {
+    } catch (error: unknown) {
+        if (!isMongoDuplicateKeyError(error)) {
             throw error;
         }
     }

@@ -1,10 +1,9 @@
-import { z } from "zod"
 import { HttpError } from "../errors/http-error"
 
 import type { NextFunction, Request, Response } from "express"
-import { ZodError, ZodTypeAny, ZodObject } from "zod";
+import { ZodError, ZodTypeAny, ZodObject, type ZodRawShape } from "zod";
 
-type AnyZodObject = ZodObject<any>;
+type AnyZodObject = ZodObject<ZodRawShape>;
 
 type Schema = AnyZodObject | ZodTypeAny
 type ParamsRecord = Record<string, string>

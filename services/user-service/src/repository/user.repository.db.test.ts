@@ -6,7 +6,6 @@ let userRepository: any;
 let sequelize: any;
 let UserModel: any;
 let dbRuntimeAvailable = false;
-let dbRuntimeError: unknown;
 
 describe('UserRepository db integration', () => {
     beforeAll(async () => {
