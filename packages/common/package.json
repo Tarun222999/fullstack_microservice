@@ -9,7 +9,7 @@
   "scripts": {
     "build": "tsc --project tsconfig.json && tsc-alias -p tsconfig.json --resolve-full-paths",
     "lint": "eslint \"src/**/*.ts\"",
-    "typecheck": "tsc --noEmit --project tsconfig.json",
+    "typecheck": "tsc --noEmit --project tsconfig.typecheck.json",
     "test": "vitest run --passWithNoTests",
     "format": "prettier --check \"src/**/*.ts\""
   },
