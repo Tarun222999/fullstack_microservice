@@ -1,9 +1,4 @@
-import {
-    loginUser,
-    refreshTokens,
-    registerUser,
-    revokeTokens,
-} from '@/controller/auth.controller';
+import { loginUser, refreshTokens, registerUser, revokeTokens } from '@/controller/auth.controller';
 import { loginSchema, refreshSchema, registerSchema, revokeSchema } from '@/validation/auth.schema';
 import { asyncHandler, validateRequest } from '@chatapp/common';
 
