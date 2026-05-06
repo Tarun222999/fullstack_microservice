@@ -91,6 +91,20 @@ describe('gateway-service http', () => {
         });
     });
 
+    it('sets CORS headers for allowed origins only', async () => {
+        const app = createApp();
+
+        const allowedResponse = await request(app)
+            .get('/health')
+            .set('Origin', 'http://localhost:5173');
+        const blockedResponse = await request(app)
+            .get('/health')
+            .set('Origin', 'https://unknown.example');
+
+        expect(allowedResponse.headers['access-control-allow-origin']).toBe('http://localhost:5173');
+        expect(blockedResponse.headers['access-control-allow-origin']).toBeUndefined();
+    });
+
     it('POST /auth/login returns 422 for invalid payload', async () => {
         const app = createApp();
 

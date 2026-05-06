@@ -65,6 +65,7 @@ GATEWAY__PORT=4000
 AUTH_SERVICE_URL=http://auth-service.railway.internal:4003
 USER_SERVICE_URL=http://user-service.railway.internal:4001
 CHAT_SERVICE_URL=http://chat-service.railway.internal:4002
+GATEWAY_ALLOWED_ORIGINS=http://localhost:5173,https://<your-frontend-domain>
 JWT_SECRET=<min-32-char-shared-secret>
 INTERNAL_API_TOKEN=<min-32-char-shared-internal-token>
 ```
@@ -126,6 +127,7 @@ GATEWAY__PORT=4000
 AUTH_SERVICE_URL=http://auth-service.railway.internal:4003
 USER_SERVICE_URL=http://user-service.railway.internal:4001
 CHAT_SERVICE_URL=http://chat-service.railway.internal:4002
+GATEWAY_ALLOWED_ORIGINS=http://localhost:5173,https://<your-frontend-domain>
 
 # ==============================
 # Auth service

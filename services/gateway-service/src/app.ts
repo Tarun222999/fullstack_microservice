@@ -3,7 +3,12 @@ import cors from "cors"
 import helmet from "helmet";
 import { errorHandler } from "@/middleware/error-handler";
 import { registerRoutes } from "@/routes";
+import { env } from "@/config/env";
 
+const allowedOrigins = env.GATEWAY_ALLOWED_ORIGINS
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
 
 
 export const createApp = (): Application => {
@@ -11,7 +16,14 @@ export const createApp = (): Application => {
 
     app.use(helmet())
     app.use(cors({
-        origin: "*",
+        origin: (origin, callback) => {
+            if (!origin || allowedOrigins.includes(origin)) {
+                callback(null, true);
+                return;
+            }
+
+            callback(null, false);
+        },
         credentials: true
     }))
     app.use(express.json())
