@@ -8,6 +8,7 @@ export default defineConfig({
     exclude: ['src/**/*.db.test.ts'],
     globals: true,
     clearMocks: true,
+    setupFiles: ['src/test/setup-env.ts'],
   },
   resolve: {
     alias: {
