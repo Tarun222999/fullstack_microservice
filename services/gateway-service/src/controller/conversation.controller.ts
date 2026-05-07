@@ -3,7 +3,6 @@ import type { RequestHandler } from 'express';
 import { type ConversationDto, chatProxyService } from '@/services/chat-proxy.service';
 import { type UserSummaryDto, userProxyService } from '@/services/user-proxy.service';
 import { getAuthenticatedUser } from '@/utils/auth';
-import { logger } from '@/utils/logger';
 import {
   createDirectConversationBodySchema,
   createConversationBodySchema,
@@ -17,11 +16,6 @@ const buildParticipantLookup = (
   users: UserSummaryDto[],
 ): Map<string, { id: string; displayName: string }> =>
   new Map(users.map((user) => [user.id, { id: user.id, displayName: user.displayName }]));
-
-const withEmptyParticipants = (conversation: ConversationDto): ConversationDto => ({
-  ...conversation,
-  participants: [],
-});
 
 const hydrateConversation = (
   conversation: ConversationDto,
@@ -60,49 +54,6 @@ const hydrateConversationList = async (
   ).data;
   const lookup = buildParticipantLookup(users);
   return conversations.map((conversation) => hydrateConversation(conversation, lookup));
-};
-
-const safeHydrateSingleConversation = async (
-  conversation: ConversationDto,
-  context: { userId: string; requestId: string; flow: string },
-): Promise<ConversationDto> => {
-  try {
-    return await hydrateSingleConversation(conversation);
-  } catch (error) {
-    logger.warn(
-      {
-        err: error,
-        userId: context.userId,
-        conversationId: conversation.id,
-        participantCount: conversation.participantIds.length,
-        requestId: context.requestId,
-        flow: context.flow,
-      },
-      'Conversation hydration failed; returning fallback response',
-    );
-    return withEmptyParticipants(conversation);
-  }
-};
-
-const safeHydrateConversationList = async (
-  conversations: ConversationDto[],
-  context: { userId: string; requestId: string; flow: string },
-): Promise<ConversationDto[]> => {
-  try {
-    return await hydrateConversationList(conversations);
-  } catch (error) {
-    logger.warn(
-      {
-        err: error,
-        userId: context.userId,
-        conversationCount: conversations.length,
-        requestId: context.requestId,
-        flow: context.flow,
-      },
-      'Conversation list hydration failed; returning fallback response',
-    );
-    return conversations.map(withEmptyParticipants);
-  }
 };
 
 export const createConversationHandler: RequestHandler = asyncHandler(async (req, res) => {
