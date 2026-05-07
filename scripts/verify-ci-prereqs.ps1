@@ -17,7 +17,7 @@ function Invoke-Step {
     Write-Host "==> $Label" -ForegroundColor Cyan
     Write-Host "    $Command" -ForegroundColor DarkGray
 
-    & powershell -NoProfile -Command $Command
+    Invoke-Expression $Command
     if ($LASTEXITCODE -ne 0) {
         throw "Step failed: $Label"
     }
