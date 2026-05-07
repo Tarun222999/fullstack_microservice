@@ -27,6 +27,7 @@ FROM deps AS builder
 # Copy source code
 COPY packages/common ./packages/common
 COPY services/gateway-service ./services/gateway-service
+COPY docs ./docs
 
 #Build commong packge first
 RUN pnpm --filter @chatapp/common build
@@ -61,6 +62,7 @@ RUN pnpm install --frozen-lockfile --prod
 # Copy built artifcats from builder
 COPY --from=builder /app/packages/common/dist ./packages/common/dist
 COPY --from=builder /app/services/gateway-service/dist ./services/gateway-service/dist
+COPY docs ./docs
 
 # Change ownership to non(root)
 RUN chown -R nodeuser:nodejs /app

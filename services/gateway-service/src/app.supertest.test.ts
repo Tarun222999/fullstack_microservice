@@ -1,6 +1,9 @@
 import request from 'supertest';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import jwt from 'jsonwebtoken';
+import { existsSync, readFileSync } from 'node:fs';
+import path from 'node:path';
+import YAML from 'yaml';
 
 const authProxyMocks = vi.hoisted(() => ({
   register: vi.fn(),
@@ -54,6 +57,22 @@ import { createApp } from '@/app';
 
 const makeAccessToken = (sub: string) =>
   jwt.sign({ sub, email: 'test@example.com' }, process.env.JWT_SECRET as string);
+
+const openApiSpecCandidates = [
+  path.resolve(process.cwd(), '../../docs/openapi.yaml'),
+  path.resolve(process.cwd(), '../docs/openapi.yaml'),
+  path.resolve(process.cwd(), 'docs/openapi.yaml'),
+];
+
+const resolveOpenApiSpecPath = (): string => {
+  for (const candidate of openApiSpecCandidates) {
+    if (existsSync(candidate)) {
+      return candidate;
+    }
+  }
+
+  return openApiSpecCandidates[0];
+};
 
 const allUsersResponse = {
   data: [
