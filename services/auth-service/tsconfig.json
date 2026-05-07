@@ -8,7 +8,9 @@
     "declarationMap": true,
     "composite": true,
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@chatapp/common": ["../../packages/common/src/index.ts"],
+      "@chatapp/common/*": ["../../packages/common/src/*"]
     }
   },
   "include": ["src"],
