@@ -11,10 +11,11 @@
     "dev": "tsx watch src/index.ts",
     "start": "node dist/index.js",
     "lint": "eslint \"src/**/*.ts\"",
-    "typecheck": "tsc --noEmit --project tsconfig.json",
+    "typecheck": "tsc --noEmit --project tsconfig.typecheck.json",
     "test": "vitest run",
     "test:watch": "vitest",
-    "format": "prettier --check \"src/**/*.ts\""
+    "format": "prettier --write \"src/**/*.ts\"",
+    "format:check": "prettier --check \"src/**/*.ts\""
   },
   "keywords": [],
   "author": "",

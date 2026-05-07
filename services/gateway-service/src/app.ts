@@ -1,27 +1,39 @@
-import express, { type Application } from "express";
-import cors from "cors"
-import helmet from "helmet";
-import { errorHandler } from "@/middleware/error-handler";
-import { registerRoutes } from "@/routes";
+import express, { type Application } from 'express';
+import cors from 'cors';
+import helmet from 'helmet';
+import { errorHandler } from '@/middleware/error-handler';
+import { registerRoutes } from '@/routes';
+import { env } from '@/config/env';
 
-
+const allowedOrigins = env.GATEWAY_ALLOWED_ORIGINS.split(',')
+  .map((origin) => origin.trim())
+  .filter(Boolean);
 
 export const createApp = (): Application => {
-    const app = express()
+  const app = express();
 
-    app.use(helmet())
-    app.use(cors({
-        origin: "*",
-        credentials: true
-    }))
-    app.use(express.json())
-    app.use(express.urlencoded({ extended: true }))
+  app.use(helmet());
+  app.use(
+    cors({
+      origin: (origin, callback) => {
+        if (!origin || allowedOrigins.includes(origin)) {
+          callback(null, true);
+          return;
+        }
 
-    registerRoutes(app)
+        callback(null, false);
+      },
+      credentials: true,
+    }),
+  );
+  app.use(express.json());
+  app.use(express.urlencoded({ extended: true }));
 
-    app.use((_req, res) => {
-        res.status(404).json({ message: "Not Found" })
-    })
-    app.use(errorHandler)
-    return app
-}
+  registerRoutes(app);
+
+  app.use((_req, res) => {
+    res.status(404).json({ message: 'Not Found' });
+  });
+  app.use(errorHandler);
+  return app;
+};

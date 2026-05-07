@@ -1,42 +1,41 @@
-import { z } from "@chatapp/common"
+import { z } from '@chatapp/common';
 
 export const createUserSchema = z.object({
-    email: z.string().email(),
-    displayName: z.string().min(3).max(255)
-})
+  email: z.string().email(),
+  displayName: z.string().min(3).max(255),
+});
 
 export const userIdParamsSchema = z.object({
-    id: z.string().uuid()
-})
+  id: z.string().uuid(),
+});
 
 export const getUsersByIdsSchema = z.object({
-    ids: z.array(z.string().uuid()).min(1).max(100),
-})
+  ids: z.array(z.string().uuid()).min(1).max(100),
+});
 
 const excludeSchema = z.union([
-    z.array(z.string().uuid()),
-    z
-        .string()
-        .uuid()
-        .transform((value) => [value])
-        .optional()
-        .transform((value) => value ?? []),
+  z.array(z.string().uuid()),
+  z
+    .string()
+    .uuid()
+    .transform((value) => [value])
+    .optional()
+    .transform((value) => value ?? []),
 ]);
 
 export const searchUsersQuerySchema = z.object({
-    query: z.string().trim().min(3).max(255),
-    limit: z
-        .union([z.string(), z.number()])
-        .transform((value) => Number())
-        .refine((value) => Number.isInteger(value) && value > 0 && value <= 25, {
-            message: 'Limit must be between 1 and 25',
-        })
-        .optional(),
-    exclude: excludeSchema,
+  query: z.string().trim().min(3).max(255),
+  limit: z
+    .union([z.string(), z.number()])
+    .transform((value) => Number(value))
+    .refine((value) => Number.isInteger(value) && value > 0 && value <= 25, {
+      message: 'Limit must be between 1 and 25',
+    })
+    .optional(),
+  exclude: excludeSchema,
 });
 
-
-export type SearchUsersQuery = z.infer<typeof searchUsersQuerySchema>
-export type CreateUserBody = z.infer<typeof createUserSchema>
-export type UserIdParams = z.infer<typeof userIdParamsSchema>
-export type GetUsersByIdsBody = z.infer<typeof getUsersByIdsSchema>
+export type SearchUsersQuery = z.infer<typeof searchUsersQuerySchema>;
+export type CreateUserBody = z.infer<typeof createUserSchema>;
+export type UserIdParams = z.infer<typeof userIdParamsSchema>;
+export type GetUsersByIdsBody = z.infer<typeof getUsersByIdsSchema>;

@@ -6,6 +6,9 @@ node_modules/
 dist/
 *.tsbuildinfo
 
+# Local service experiments
+services/email-service/
+
 # Environment files
 .env
 .env.local

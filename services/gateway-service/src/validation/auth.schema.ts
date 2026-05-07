@@ -1,20 +1,20 @@
-import { z } from "@chatapp/common"
+import { z } from '@chatapp/common';
 
 export const registerSchema = z.object({
-    email: z.string().email(),
-    password: z.string().min(8),
-    displayName: z.string().min(3).max(30),
+  email: z.string().email(),
+  password: z.string().min(8),
+  displayName: z.string().min(3).max(30),
 });
 
 export const loginSchema = z.object({
-    email: z.string().email(),
-    password: z.string().min(8),
+  email: z.string().email(),
+  password: z.string().min(8),
 });
 
 export const refreshSchema = z.object({
-    refreshToken: z.string(),
+  refreshToken: z.string(),
 });
 
 export const revokeSchema = z.object({
-    userId: z.string().uuid(),
+  userId: z.string().uuid(),
 });

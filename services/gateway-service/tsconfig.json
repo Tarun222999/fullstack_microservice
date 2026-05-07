@@ -6,9 +6,11 @@
     "tsBuildInfoFile": "dist/tsconfig.tsbuildinfo",
     "declaration": true,
     "declarationMap": true,
-    "baseUrl": ".",
+    "composite": true,
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": ["./src/*"],
+      "@chatapp/common": ["../../packages/common/src/index.ts"],
+      "@chatapp/common/*": ["../../packages/common/src/*"]
     }
   },
   "include": ["src"],
