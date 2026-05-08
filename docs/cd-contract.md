@@ -64,6 +64,8 @@ The workflow uses:
 
 The Railway CLI deploy command used is `railway up`.
 
+The GitHub Actions workflow pins the Railway CLI version to `4.40.0` for reproducible deploy behavior across runs.
+
 Railway documentation notes:
 
 - `railway up` uploads and deploys the current code archive
