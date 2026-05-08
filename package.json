@@ -10,7 +10,7 @@
     "format": "pnpm -r --workspace-root=false run format",
     "format:check": "pnpm -r --workspace-root=false run format:check",
     "format:staged": "lint-staged",
-    "prepare": "husky",
+    "prepare": "node .husky/install.mjs",
     "test": "pnpm -r --workspace-root=false --if-present run test",
     "test:all": "pnpm -r --workspace-root=false --if-present run test",
     "test:db:user": "pnpm --filter @chatapp/user-service test:db",
