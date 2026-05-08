@@ -1,0 +1,159 @@
+name: CD
+
+on:
+  workflow_dispatch:
+    inputs:
+      deploy_scope:
+        description: Select which app services to deploy
+        required: true
+        default: all
+        type: choice
+        options:
+          - all
+          - auth-service
+          - user-service
+          - chat-service
+          - gateway-service
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy-production:
+    name: Deploy Production
+    runs-on: ubuntu-latest
+    environment:
+      name: 'fearless-creation / production'
+      url: https://gateway-service-production-4262.up.railway.app/health
+
+    env:
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+      RAILWAY_PROJECT_ID: ${{ vars.RAILWAY_PROJECT_ID }}
+      RAILWAY_PROJECT_NAME: ${{ vars.RAILWAY_PROJECT_NAME }}
+      RAILWAY_ENVIRONMENT_NAME: production
+      GATEWAY_HEALTH_URL: https://gateway-service-production-4262.up.railway.app/health
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Guard main branch
+        if: ${{ github.ref_name != 'main' }}
+        run: |
+          echo "Production deployments are only allowed from the main branch."
+          exit 1
+
+      - name: Verify CI succeeded for current main commit
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const workflowFile = 'ci.yml';
+            const branch = 'main';
+            const currentSha = context.sha;
+
+            const workflow = await github.rest.actions.getWorkflow({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: workflowFile,
+            });
+
+            let page = 1;
+            let matchingRun;
+
+            while (!matchingRun) {
+              const runs = await github.rest.actions.listWorkflowRuns({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                workflow_id: workflow.data.id,
+                branch,
+                event: 'push',
+                per_page: 100,
+                page,
+              });
+
+              matchingRun = runs.data.workflow_runs.find(
+                (run) => run.head_sha === currentSha,
+              );
+
+              if (matchingRun || runs.data.workflow_runs.length < 100) {
+                break;
+              }
+
+              page += 1;
+            }
+
+            if (!matchingRun) {
+              core.setFailed(
+                `No CI push run was found for commit ${currentSha} on ${branch}. Run CI on main before deploying.`,
+              );
+              return;
+            }
+
+            if (matchingRun.status !== 'completed') {
+              core.setFailed(
+                `CI for commit ${currentSha} is still ${matchingRun.status}. Wait for it to complete before deploying.`,
+              );
+              return;
+            }
+
+            if (matchingRun.conclusion !== 'success') {
+              core.setFailed(
+                `CI for commit ${currentSha} concluded with '${matchingRun.conclusion}'. Deployment is blocked.`,
+              );
+              return;
+            }
+
+            core.info(`Verified CI success for commit ${currentSha}.`);
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Railway CLI
+        run: npm install --global @railway/cli@4.40.0
+
+      - name: Verify Railway configuration
+        run: |
+          test -n "$RAILWAY_TOKEN" || (echo "Missing RAILWAY_TOKEN" && exit 1)
+          test -n "$RAILWAY_PROJECT_ID" || (echo "Missing RAILWAY_PROJECT_ID" && exit 1)
+          test -n "$RAILWAY_PROJECT_NAME" || (echo "Missing RAILWAY_PROJECT_NAME" && exit 1)
+
+      - name: Deploy selected service(s)
+        shell: bash
+        env:
+          DEPLOY_SCOPE: ${{ inputs.deploy_scope }}
+        run: |
+          set -euo pipefail
+
+          if [[ "$DEPLOY_SCOPE" == "all" ]]; then
+            services=("auth-service" "user-service" "chat-service" "gateway-service")
+          else
+            services=("$DEPLOY_SCOPE")
+          fi
+
+          printf 'Deploy target project: %s (%s)\n' "$RAILWAY_PROJECT_NAME" "$RAILWAY_PROJECT_ID"
+          printf 'Railway environment: %s\n' "$RAILWAY_ENVIRONMENT_NAME"
+          printf 'Service scope: %s\n' "$DEPLOY_SCOPE"
+
+          for service in "${services[@]}"; do
+            printf '\nDeploying %s...\n' "$service"
+            railway up \
+              --service "$service" \
+              --environment "$RAILWAY_ENVIRONMENT_NAME" \
+              --project "$RAILWAY_PROJECT_ID" \
+              --ci
+          done
+
+      - name: Verify production health
+        run: |
+          curl --fail --silent --show-error \
+            --retry 10 \
+            --retry-delay 5 \
+            --retry-all-errors \
+            "$GATEWAY_HEALTH_URL"

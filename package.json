@@ -9,6 +9,8 @@
     "typecheck": "pnpm -r --workspace-root=false --if-present run typecheck",
     "format": "pnpm -r --workspace-root=false run format",
     "format:check": "pnpm -r --workspace-root=false run format:check",
+    "format:staged": "lint-staged",
+    "prepare": "husky",
     "test": "pnpm -r --workspace-root=false --if-present run test",
     "test:all": "pnpm -r --workspace-root=false --if-present run test",
     "test:db:user": "pnpm --filter @chatapp/user-service test:db",
@@ -30,8 +32,13 @@
     "@typescript-eslint/eslint-plugin": "^8.53.1",
     "@typescript-eslint/parser": "^8.53.1",
     "eslint": "^9.39.2",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.6",
     "prettier": "^3.8.1",
     "tsx": "^4.21.0",
     "typescript": "^5.9.3"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,jsx,mjs,cjs,json,md,yml,yaml}": "prettier --write"
   }
 }
