@@ -205,11 +205,13 @@ An in-memory worker queue also creates a reliability gap: the service can accept
 
 The first version should only return success after Resend accepts the email request.
 
-## Phase 2: Branded Email Template
+## Deferred Phase: Branded Email Template
 
 ### Target State
 
 The invite email should feel like it belongs to the chat product, not like a generic system email.
+
+This phase is intentionally deferred until after the plain invite flow is wired and tested end to end.
 
 The branded template should include:
 
@@ -327,9 +329,11 @@ Content-Type: application/json
 {
   "to": "friend@example.com",
   "inviteUrl": "https://app.example.com/invite/abc",
-  "inviterName": "Tarun"
+  "inviterName": "test@example.com"
 }
 ```
+
+`inviterName` is optional context derived from the authenticated JWT email when present. Gateway should not call `user-service` to hydrate the inviter profile in this phase.
 
 ### Gateway Files
 

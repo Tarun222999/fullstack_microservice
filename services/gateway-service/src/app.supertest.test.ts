@@ -27,6 +27,10 @@ const chatProxyMocks = vi.hoisted(() => ({
   listMessages: vi.fn(),
 }));
 
+const emailProxyMocks = vi.hoisted(() => ({
+  sendChatInvite: vi.fn(),
+}));
+
 const loggerMocks = vi.hoisted(() => ({
   error: vi.fn(),
   warn: vi.fn(),
@@ -44,6 +48,10 @@ vi.mock('@/services/user-proxy.service', () => ({
 
 vi.mock('@/services/chat-proxy.service', () => ({
   chatProxyService: chatProxyMocks,
+}));
+
+vi.mock('@/services/email-proxy.service', () => ({
+  emailProxyService: emailProxyMocks,
 }));
 
 vi.mock('@/utils/logger', () => ({
@@ -441,6 +449,64 @@ describe('gateway-service http', () => {
       { id: '936cf6c1-be78-4192-9c77-8f44a84ff6ea', displayName: 'Target' },
       { id: 'dc40ca49-b0f2-4b27-a771-5fda47d1d66f', displayName: 'Self' },
     ]);
+  });
+
+  it('POST /chat-invites returns 401 without auth header', async () => {
+    const app = createApp();
+
+    const response = await request(app).post('/chat-invites').send({
+      email: 'friend@example.com',
+      inviteUrl: 'https://app.example.com/invite/abc',
+    });
+
+    expect(response.status).toBe(401);
+    expect(emailProxyMocks.sendChatInvite).not.toHaveBeenCalled();
+  });
+
+  it('POST /chat-invites returns 422 for invalid body', async () => {
+    const app = createApp();
+    const token = makeAccessToken('dc40ca49-b0f2-4b27-a771-5fda47d1d66f');
+
+    const response = await request(app)
+      .post('/chat-invites')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        email: 'not-an-email',
+        inviteUrl: 'ftp://app.example.com/invite/abc',
+      });
+
+    expect(response.status).toBe(422);
+    expect(emailProxyMocks.sendChatInvite).not.toHaveBeenCalled();
+  });
+
+  it('POST /chat-invites delegates to email proxy', async () => {
+    emailProxyMocks.sendChatInvite.mockResolvedValue({
+      data: {
+        id: 'email-id',
+      },
+    });
+    const app = createApp();
+    const token = makeAccessToken('dc40ca49-b0f2-4b27-a771-5fda47d1d66f');
+
+    const response = await request(app)
+      .post('/chat-invites')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        email: 'friend@example.com',
+        inviteUrl: 'https://app.example.com/invite/abc',
+      });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      data: {
+        sent: true,
+      },
+    });
+    expect(emailProxyMocks.sendChatInvite).toHaveBeenCalledWith({
+      to: 'friend@example.com',
+      inviteUrl: 'https://app.example.com/invite/abc',
+      inviterName: 'test@example.com',
+    });
   });
 
   it('POST /conversations/:id/messages returns 401 without auth', async () => {
