@@ -88,6 +88,7 @@ The manual workflow currently supports a `deploy_scope` input with these options
 - `auth-service`
 - `user-service`
 - `chat-service`
+- `email-service`
 - `gateway-service`
 
 If `all` is selected, services deploy in this order:
@@ -95,7 +96,8 @@ If `all` is selected, services deploy in this order:
 1. `auth-service`
 2. `user-service`
 3. `chat-service`
-4. `gateway-service`
+4. `email-service`
+5. `gateway-service`
 
 This keeps the public gateway last so internal services update first.
 
