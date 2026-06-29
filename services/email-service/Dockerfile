@@ -4,15 +4,11 @@ FROM golang:1.25.3-alpine AS builder
 
 WORKDIR /src
 
-COPY services/email-service/go.mod ./services/email-service/go.mod
-
-WORKDIR /src/services/email-service
+COPY go.mod ./
 RUN go mod download
 
-WORKDIR /src
-COPY services/email-service ./services/email-service
+COPY . .
 
-WORKDIR /src/services/email-service
 RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags="-s -w" -o /out/email-service .
 
 FROM alpine:3.22 AS production

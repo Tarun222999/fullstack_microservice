@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"github.com/Tarun222999/fullstack_microservice/services/email-service/internal/types"
 	"os"
 	"strings"
 )
@@ -12,6 +13,7 @@ type Config struct {
 	ResendAPIKey  string
 	EmailFrom     string
 	AppName       string
+	Brand         types.Brand
 }
 
 func Load() (Config, error) {
@@ -20,7 +22,15 @@ func Load() (Config, error) {
 		InternalToken: strings.TrimSpace(os.Getenv("INTERNAL_API_TOKEN")),
 		ResendAPIKey:  strings.TrimSpace(os.Getenv("RESEND_API_KEY")),
 		EmailFrom:     strings.TrimSpace(os.Getenv("EMAIL_FROM")),
-		AppName:       envOrDefault("APP_NAME", "Chat App"),
+		AppName:       envOrDefault("APP_NAME", "Pulse Chat"),
+		Brand: types.Brand{
+			PrimaryColor:    envOrDefault("BRAND_PRIMARY_COLOR", "#00e676"),
+			BackgroundColor: envOrDefault("BRAND_BACKGROUND_COLOR", "#05080d"),
+			SurfaceColor:    envOrDefault("BRAND_SURFACE_COLOR", "#0a0f14"),
+			TextColor:       envOrDefault("BRAND_TEXT_COLOR", "#f8fafc"),
+			MutedColor:      envOrDefault("BRAND_MUTED_COLOR", "#8b95a7"),
+			BorderColor:     envOrDefault("BRAND_BORDER_COLOR", "#173526"),
+		},
 	}
 
 	var missing []string

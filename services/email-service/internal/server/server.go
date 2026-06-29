@@ -57,6 +57,7 @@ func (s *Server) handleChatInvite(w http.ResponseWriter, r *http.Request) {
 		InviterName: strings.TrimSpace(payload.InviterName),
 		From:        s.config.EmailFrom,
 		AppName:     s.config.AppName,
+		Brand:       s.config.Brand,
 	})
 	if err != nil {
 		log.Printf("failed to send chat invite email: %v", err)

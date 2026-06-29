@@ -21,6 +21,7 @@ type resendEmailRequest struct {
 	From    string   `json:"from"`
 	To      []string `json:"to"`
 	Subject string   `json:"subject"`
+	HTML    string   `json:"html"`
 	Text    string   `json:"text"`
 }
 
@@ -41,7 +42,8 @@ func (s *ResendSender) SendChatInvite(ctx context.Context, invite types.ChatInvi
 	requestBody := resendEmailRequest{
 		From:    invite.From,
 		To:      []string{invite.To},
-		Subject: fmt.Sprintf("You were invited to chat on %s", invite.AppName),
+		Subject: RenderSubject(invite),
+		HTML:    RenderHTMLInvite(invite),
 		Text:    RenderPlainTextInvite(invite),
 	}
 

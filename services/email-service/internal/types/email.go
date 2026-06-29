@@ -8,8 +8,18 @@ type ChatInviteEmail struct {
 	InviterName string
 	From        string
 	AppName     string
+	Brand       Brand
 }
 
 type EmailSender interface {
 	SendChatInvite(ctx context.Context, invite ChatInviteEmail) (string, error)
+}
+
+type Brand struct {
+	PrimaryColor    string
+	BackgroundColor string
+	SurfaceColor    string
+	TextColor       string
+	MutedColor      string
+	BorderColor     string
 }
