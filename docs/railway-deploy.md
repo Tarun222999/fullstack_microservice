@@ -1,8 +1,8 @@
 # Railway Deployment Runbook
 
-This project currently deploys as **9 Railway services**:
+This project currently deploys as **10 Railway services**:
 
-- App services: `gateway-service`, `auth-service`, `user-service`, `chat-service`
+- App services: `gateway-service`, `auth-service`, `user-service`, `chat-service`, `email-service`
 - Infra services: `postgres`, `mysql`, `mongo`, `redis`, `rabbitmq`
 
 Only `gateway-service` should be public. Keep the other 8 services private/internal.
@@ -17,6 +17,7 @@ Only `gateway-service` should be public. Keep the other 8 services private/inter
 | `auth-service`    | Registration/login/token lifecycle    | Gateway          |
 | `user-service`    | User profile/search APIs              | Gateway          |
 | `chat-service`    | Conversation/message + Socket.IO      | Gateway          |
+| `email-service`   | Chat invite email delivery            | Gateway          |
 | `postgres`        | User DB                               | User service     |
 | `mysql`           | Auth DB                               | Auth service     |
 | `mongo`           | Chat document store                   | Chat service     |
@@ -31,12 +32,13 @@ Only `gateway-service` should be public. Keep the other 8 services private/inter
 
 Each application service should be created from the repo root with its own Dockerfile:
 
-| Service           | Root Directory | Dockerfile Path                       | Internal Port |
-| ----------------- | -------------- | ------------------------------------- | ------------- |
-| `gateway-service` | `.`            | `services/gateway-service/Dockerfile` | `4000`        |
-| `auth-service`    | `.`            | `services/auth-service/Dockerfile`    | `4003`        |
-| `user-service`    | `.`            | `services/user-service/Dockerfile`    | `4001`        |
-| `chat-service`    | `.`            | `services/chat-service/Dockerfile`    | `4002`        |
+| Service           | Root Directory           | Dockerfile Path                       | Internal Port |
+| ----------------- | ------------------------ | ------------------------------------- | ------------- |
+| `gateway-service` | `.`                      | `services/gateway-service/Dockerfile` | `4000`        |
+| `auth-service`    | `.`                      | `services/auth-service/Dockerfile`    | `4003`        |
+| `user-service`    | `.`                      | `services/user-service/Dockerfile`    | `4001`        |
+| `chat-service`    | `.`                      | `services/chat-service/Dockerfile`    | `4002`        |
+| `email-service`   | `services/email-service` | `Dockerfile`                          | `4004`        |
 
 Set the Railway health check path for every app service to `/health`.
 
@@ -49,6 +51,7 @@ Use Railway private networking between services. Typical values:
 - `AUTH_SERVICE_URL=http://auth-service.railway.internal:4003`
 - `USER_SERVICE_URL=http://user-service.railway.internal:4001`
 - `CHAT_SERVICE_URL=http://chat-service.railway.internal:4002`
+- `EMAIL_SERVICE_URL=http://email-service.railway.internal:4004`
 - `RABBITMQ_URL=amqp://<user>:<password>@rabbitmq.railway.internal:5672`
 - `USER_DB_URL=postgresql://<user>:<password>@postgres.railway.internal:5432/<db>`
 - `AUTH_DB_URL=mysql://<user>:<password>@mysql.railway.internal:3306/<db>`
@@ -71,9 +74,26 @@ GATEWAY_PORT=4000
 AUTH_SERVICE_URL=http://auth-service.railway.internal:4003
 USER_SERVICE_URL=http://user-service.railway.internal:4001
 CHAT_SERVICE_URL=http://chat-service.railway.internal:4002
+EMAIL_SERVICE_URL=http://email-service.railway.internal:4004
 GATEWAY_ALLOWED_ORIGINS=http://localhost:5173,https://<your-frontend-domain>
 JWT_SECRET=<min-32-char-shared-secret>
 INTERNAL_API_TOKEN=<shared-internal-token>
+```
+
+### `email-service`
+
+```bash
+EMAIL_SERVICE_PORT=4004
+INTERNAL_API_TOKEN=<same-shared-internal-token>
+RESEND_API_KEY=<resend-api-key>
+EMAIL_FROM=Pulse Chat <invites@your-verified-domain>
+APP_NAME=Pulse Chat
+BRAND_PRIMARY_COLOR=#00e676
+BRAND_BACKGROUND_COLOR=#05080d
+BRAND_SURFACE_COLOR=#0a0f14
+BRAND_TEXT_COLOR=#f8fafc
+BRAND_MUTED_COLOR=#8b95a7
+BRAND_BORDER_COLOR=#173526
 ```
 
 ### `auth-service`
@@ -147,6 +167,7 @@ GATEWAY_PORT=4000
 AUTH_SERVICE_URL=http://auth-service.railway.internal:4003
 USER_SERVICE_URL=http://user-service.railway.internal:4001
 CHAT_SERVICE_URL=http://chat-service.railway.internal:4002
+EMAIL_SERVICE_URL=http://email-service.railway.internal:4004
 GATEWAY_ALLOWED_ORIGINS=http://localhost:5173,https://<your-frontend-domain>
 
 # Auth
@@ -179,6 +200,18 @@ REDIS_URL=redis://default:<password>@redis.railway.internal:6379
 CHAT_SOCKET_ALLOWED_ORIGINS=https://<your-frontend-domain>
 CONSUMER_DEDUPE_ENABLED=true
 CONSUMER_LOCK_TIMEOUT_MS=30000
+
+# Email
+EMAIL_SERVICE_PORT=4004
+RESEND_API_KEY=<resend-api-key>
+EMAIL_FROM=Pulse Chat <invites@your-verified-domain>
+APP_NAME=Pulse Chat
+BRAND_PRIMARY_COLOR=#00e676
+BRAND_BACKGROUND_COLOR=#05080d
+BRAND_SURFACE_COLOR=#0a0f14
+BRAND_TEXT_COLOR=#f8fafc
+BRAND_MUTED_COLOR=#8b95a7
+BRAND_BORDER_COLOR=#173526
 ```
 
 ---
@@ -186,13 +219,13 @@ CONSUMER_LOCK_TIMEOUT_MS=30000
 ## 6) Deploy order
 
 1. Deploy infra first: `postgres`, `mysql`, `mongo`, `redis`, `rabbitmq`
-2. Deploy backend services next: `auth-service`, `user-service`, `chat-service`
+2. Deploy backend services next: `auth-service`, `user-service`, `chat-service`, `email-service`
 3. Deploy `gateway-service` last
 
 If you already have the 9 services from the previous Railway project, the practical order for a refresh is:
 
 1. Update env vars on infra-connected services first
-2. Redeploy `auth-service`, `user-service`, `chat-service`
+2. Redeploy `auth-service`, `user-service`, `chat-service`, `email-service`
 3. Redeploy `gateway-service`
 
 ---

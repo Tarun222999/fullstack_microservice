@@ -26,6 +26,10 @@ function Invoke-Step {
 Write-Host "Repo: $repoRoot" -ForegroundColor Green
 Invoke-Step -Label "Node version" -Command "node -v"
 Invoke-Step -Label "pnpm version" -Command "pnpm -v"
+Invoke-Step -Label "Go version" -Command "go version"
+
+$env:GOCACHE = Join-Path $repoRoot ".gocache-ci"
+$env:GOTELEMETRY = "off"
 
 $steps = @(
     @{ Label = "Lint common"; Command = "pnpm --filter @chatapp/common run lint" },
@@ -45,17 +49,20 @@ $steps = @(
     @{ Label = "Format check user-service"; Command = "pnpm --filter @chatapp/user-service run format:check" },
     @{ Label = "Format check chat-service"; Command = "pnpm --filter chat-service run format:check" },
     @{ Label = "Format check gateway-service"; Command = "pnpm --filter gateway-service run format:check" },
+    @{ Label = "Format check email-service"; Command = 'Push-Location services/email-service; $unformatted = gofmt -l .; if ($unformatted) { $unformatted; Pop-Location; throw "Go files are not gofmt formatted" }; Pop-Location' },
 
     @{ Label = "Test auth-service"; Command = "pnpm --filter @chatapp/auth-service run test" },
     @{ Label = "Test user-service"; Command = "pnpm --filter @chatapp/user-service run test" },
     @{ Label = "Test chat-service"; Command = "pnpm --filter chat-service run test" },
     @{ Label = "Test gateway-service"; Command = "pnpm --filter gateway-service run test" },
+    @{ Label = "Test email-service"; Command = 'Push-Location services/email-service; go test ./...; Pop-Location' },
 
     @{ Label = "Build common"; Command = "pnpm --filter @chatapp/common run build" },
     @{ Label = "Build auth-service"; Command = "pnpm --filter @chatapp/auth-service run build" },
     @{ Label = "Build user-service"; Command = "pnpm --filter @chatapp/user-service run build" },
     @{ Label = "Build chat-service"; Command = "pnpm --filter chat-service run build" },
-    @{ Label = "Build gateway-service"; Command = "pnpm --filter gateway-service run build" }
+    @{ Label = "Build gateway-service"; Command = "pnpm --filter gateway-service run build" },
+    @{ Label = "Build email-service"; Command = 'Push-Location services/email-service; go build ./...; Pop-Location' }
 )
 
 foreach ($step in $steps) {

@@ -28,6 +28,7 @@ The CI runner uses:
 
 - Node `22`
 - pnpm `10.28.1`
+- Go version from `services/email-service/go.mod`
 
 Dependencies are installed with:
 
@@ -77,6 +78,7 @@ The workflow executes `scripts/verify-ci-prereqs.ps1`, which currently runs thes
 - `pnpm --filter @chatapp/user-service run format:check`
 - `pnpm --filter chat-service run format:check`
 - `pnpm --filter gateway-service run format:check`
+- `gofmt -l .` inside `services/email-service`
 
 ### Tests
 
@@ -84,6 +86,7 @@ The workflow executes `scripts/verify-ci-prereqs.ps1`, which currently runs thes
 - `pnpm --filter @chatapp/user-service run test`
 - `pnpm --filter chat-service run test`
 - `pnpm --filter gateway-service run test`
+- `go test ./...` inside `services/email-service`
 
 ### Build
 
@@ -92,6 +95,7 @@ The workflow executes `scripts/verify-ci-prereqs.ps1`, which currently runs thes
 - `pnpm --filter @chatapp/user-service run build`
 - `pnpm --filter chat-service run build`
 - `pnpm --filter gateway-service run build`
+- `go build ./...` inside `services/email-service`
 
 ## Why The Checks Run Workspace-By-Workspace
 
