@@ -18,7 +18,7 @@ type Config struct {
 
 func Load() (Config, error) {
 	config := Config{
-		Port:          envOrDefault("EMAIL_SERVICE_PORT", "4004"),
+		Port:          envOrDefault("PORT", envOrDefault("EMAIL_SERVICE_PORT", "4004")),
 		InternalToken: strings.TrimSpace(os.Getenv("INTERNAL_API_TOKEN")),
 		ResendAPIKey:  strings.TrimSpace(os.Getenv("RESEND_API_KEY")),
 		EmailFrom:     strings.TrimSpace(os.Getenv("EMAIL_FROM")),
