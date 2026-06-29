@@ -17,6 +17,7 @@ const envSchema = z.object({
   USER_SERVICE_URL: z.string().url(),
   JWT_SECRET: z.string().min(32),
   CHAT_SERVICE_URL: z.string().url(),
+  EMAIL_SERVICE_URL: z.string().url(),
   GATEWAY_ALLOWED_ORIGINS: z
     .string()
     .default('http://localhost:3000,http://localhost:5173,http://localhost:4173'),

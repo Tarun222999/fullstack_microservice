@@ -6,8 +6,6 @@ node_modules/
 dist/
 *.tsbuildinfo
 
-# Local service experiments
-services/email-service/
 
 # Environment files
 .env
@@ -49,6 +47,7 @@ temp/
 
 # Cache
 .cache/
+.gocache*/
 .turbo/
 .eslintcache
 .prettiercache

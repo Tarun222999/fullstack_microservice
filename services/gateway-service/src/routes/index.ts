@@ -3,6 +3,7 @@ import { authRouter } from '@/routes/auth.route';
 import { userRouter } from '@/routes/user.route';
 import { conversationRouter } from '@/routes/conversation.route';
 import { directConversationRouter } from '@/routes/direct-conversation.route';
+import { chatInviteRouter } from '@/routes/chat-invite.route';
 
 export const registerRoutes = (app: Router) => {
   // Health check endpoint for Docker/K8s
@@ -14,4 +15,5 @@ export const registerRoutes = (app: Router) => {
   app.use('/users', userRouter);
   app.use('/conversations', conversationRouter);
   app.use('/direct-conversations', directConversationRouter);
+  app.use('/chat-invites', chatInviteRouter);
 };
