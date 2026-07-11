@@ -33,6 +33,7 @@ Read these chapters in order:
 5. [Chapter 05: OpenTelemetry](./05-opentelemetry.md)
 6. [Chapter 06: Grafana](./06-grafana.md)
 7. [Chapter 07: Applying The Stack To This Project](./07-project-implementation-plan.md)
+8. [Chapter 08: Implementation Roadmap](./08-implementation-roadmap.md)
 
 ## How To Study This
 

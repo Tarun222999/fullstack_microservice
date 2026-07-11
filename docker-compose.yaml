@@ -275,12 +275,89 @@ services:
       start_period: 20s
     restart: unless-stopped
 
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.130.1
+    container_name: chatapp-otel-collector
+    command: ['--config=/etc/otelcol-contrib/config.yaml']
+    ports:
+      - '${OTEL_COLLECTOR_GRPC_PORT:-4317}:4317'
+      - '${OTEL_COLLECTOR_HTTP_PORT:-4318}:4318'
+      - '${OTEL_COLLECTOR_PROMETHEUS_PORT:-9464}:9464'
+    volumes:
+      - ./monitoring/otel-collector/config.yaml:/etc/otelcol-contrib/config.yaml:ro
+    depends_on:
+      - jaeger
+    networks:
+      - chatapp-network
+    restart: unless-stopped
+
+  prometheus:
+    image: prom/prometheus:v3.5.0
+    container_name: chatapp-prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yaml'
+      - '--storage.tsdb.path=/prometheus'
+    ports:
+      - '${PROMETHEUS_PORT:-9090}:9090'
+    volumes:
+      - ./monitoring/prometheus/prometheus.yaml:/etc/prometheus/prometheus.yaml:ro
+      - prometheus-data:/prometheus
+    depends_on:
+      - otel-collector
+    networks:
+      - chatapp-network
+    restart: unless-stopped
+
+  jaeger:
+    image: jaegertracing/jaeger:2.8.0
+    container_name: chatapp-jaeger
+    ports:
+      - '${JAEGER_UI_PORT:-16686}:16686'
+    networks:
+      - chatapp-network
+    restart: unless-stopped
+
+  loki:
+    image: grafana/loki:3.5.2
+    container_name: chatapp-loki
+    command: ['-config.file=/etc/loki/loki.yaml']
+    ports:
+      - '${LOKI_PORT:-3100}:3100'
+    volumes:
+      - ./monitoring/loki/loki.yaml:/etc/loki/loki.yaml:ro
+      - loki-data:/loki
+    networks:
+      - chatapp-network
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:12.0.2
+    container_name: chatapp-grafana
+    ports:
+      - '${GRAFANA_PORT:-3000}:3000'
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      - prometheus
+      - jaeger
+      - loki
+    networks:
+      - chatapp-network
+    restart: unless-stopped
+
 volumes:
   user-db-data:
   mongo-data:
   auth-db-data:
   redis-data:
   rabbitmq-data:
+  prometheus-data:
+  loki-data:
+  grafana-data:
 
 networks:
   chatapp-network:
