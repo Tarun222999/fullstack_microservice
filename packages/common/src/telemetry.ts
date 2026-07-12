@@ -1,5 +1,7 @@
 import { NodeSDK } from '@opentelemetry/sdk-node';
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
+import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-http';
+import { PeriodicExportingMetricReader } from '@opentelemetry/sdk-metrics';
 import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node';
 import { resourceFromAttributes } from '@opentelemetry/resources';
 import { ATTR_SERVICE_NAME } from '@opentelemetry/semantic-conventions';
@@ -17,6 +19,11 @@ const tracesUrl = () => {
   return `${endpoint.replace(/\/$/, '')}/v1/traces`;
 };
 
+const metricsUrl = () => {
+  const endpoint = process.env.OTEL_EXPORTER_OTLP_ENDPOINT ?? 'http://localhost:4318';
+  return `${endpoint.replace(/\/$/, '')}/v1/metrics`;
+};
+
 export const startNodeTelemetry = ({ serviceName }: NodeTelemetryOptions) => {
   if (!isTelemetryEnabled() || sdk) {
     return sdk;
@@ -29,6 +36,12 @@ export const startNodeTelemetry = ({ serviceName }: NodeTelemetryOptions) => {
       }),
       traceExporter: new OTLPTraceExporter({
         url: tracesUrl(),
+      }),
+      metricReader: new PeriodicExportingMetricReader({
+        exporter: new OTLPMetricExporter({
+          url: metricsUrl(),
+        }),
+        exportIntervalMillis: Number(process.env.OTEL_METRIC_EXPORT_INTERVAL_MS ?? 5000),
       }),
       instrumentations: [
         getNodeAutoInstrumentations({
