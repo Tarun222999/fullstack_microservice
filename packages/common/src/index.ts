@@ -1,5 +1,6 @@
 export * from './env';
 export * from './logger';
+export * from './telemetry';
 export * from './errors/http-error';
 export * from './http/async-handler';
 export * from './http/validate-request';

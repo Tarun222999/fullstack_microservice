@@ -124,6 +124,9 @@ services:
       EMAIL_SERVICE_URL: http://email-service:4004
       JWT_SECRET: ${JWT_SECRET}
       INTERNAL_API_TOKEN: ${INTERNAL_API_TOKEN}
+      OTEL_ENABLED: ${OTEL_ENABLED:-true}
+      OTEL_SERVICE_NAME: gateway-service
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
     depends_on:
       auth-service:
         condition: service_healthy
@@ -131,6 +134,8 @@ services:
         condition: service_healthy
       chat-service:
         condition: service_healthy
+      otel-collector:
+        condition: service_started
     networks:
       - chatapp-network
     healthcheck:
