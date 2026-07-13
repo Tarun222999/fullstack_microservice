@@ -34,6 +34,7 @@ Read these chapters in order:
 6. [Chapter 06: Grafana](./06-grafana.md)
 7. [Chapter 07: Applying The Stack To This Project](./07-project-implementation-plan.md)
 8. [Chapter 08: Implementation Roadmap](./08-implementation-roadmap.md)
+9. [Chapter 09: Observability Exploration Lab](./09-exploration-lab.md)
 
 ## How To Study This
 
@@ -43,7 +44,8 @@ For each chapter:
 2. Learn the vocabulary.
 3. Connect the concept to this project.
 4. Answer the checkpoint questions.
-5. Only then move to implementation.
+5. Run the matching exploration lab.
+6. Only then move to the next implementation step.
 
 The best way to learn this stack is to follow one simple request through the system:
 

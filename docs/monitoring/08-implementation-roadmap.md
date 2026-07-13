@@ -6,6 +6,8 @@ Implement observability in this project gradually, with a clear learning checkpo
 
 This is intentionally not a one-shot plan. Each milestone should leave the project in a working state and teach one part of the stack.
 
+Use [Chapter 09: Observability Exploration Lab](./09-exploration-lab.md) after each milestone. The implementation roadmap tells us what to build; the exploration lab tells us what to click, query, compare, and explain.
+
 ## Current Project Shape
 
 Application services:
@@ -271,6 +273,29 @@ Learning checkpoint:
 - How does trace context move through HTTP?
 - What is auto-instrumentation?
 - Which spans came from our code and which came from libraries?
+
+Implementation note:
+
+- The same defensive bootstrap pattern used by `gateway-service` is now used by `auth-service`, `user-service`, and `chat-service`.
+- Each service imports telemetry first from `src/index.ts`, then imports its real application startup from `src/main.ts`.
+- If telemetry startup fails, the service logs the error and continues without telemetry.
+- Each service sends OTLP HTTP telemetry to `http://otel-collector:4318`.
+- Each service sets a unique `OTEL_SERVICE_NAME`, so Jaeger and Prometheus can separate the telemetry by service.
+
+Verification commands:
+
+```powershell
+pnpm --filter @chatapp/common build
+pnpm --filter user-service build
+pnpm --filter chat-service build
+pnpm --filter @chatapp/auth-service build
+```
+
+Current verification note:
+
+- `user-service` and `chat-service` compile successfully.
+- `auth-service` currently fails before telemetry is checked because its build includes test files that import `vitest`, and the active install cannot resolve those test types.
+- Treat the auth build issue as a separate test/build-config cleanup unless it appears in Docker after a fresh install.
 
 ## Milestone 5: Instrument `email-service`
 

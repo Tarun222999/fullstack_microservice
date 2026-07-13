@@ -167,11 +167,16 @@ services:
       OUTBOX_POLL_INTERVAL_MS: ${OUTBOX_POLL_INTERVAL_MS:-2000}
       OUTBOX_LOCK_TIMEOUT_MS: ${OUTBOX_LOCK_TIMEOUT_MS:-30000}
       OUTBOX_MAX_ATTEMPTS: ${OUTBOX_MAX_ATTEMPTS:-10}
+      OTEL_ENABLED: ${OTEL_ENABLED:-true}
+      OTEL_SERVICE_NAME: auth-service
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
     depends_on:
       auth-db:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+      otel-collector:
+        condition: service_started
     networks:
       - chatapp-network
     healthcheck:
@@ -202,11 +207,16 @@ services:
       OUTBOX_MAX_ATTEMPTS: ${OUTBOX_MAX_ATTEMPTS:-10}
       CONSUMER_DEDUPE_ENABLED: ${CONSUMER_DEDUPE_ENABLED:-true}
       CONSUMER_LOCK_TIMEOUT_MS: ${CONSUMER_LOCK_TIMEOUT_MS:-30000}
+      OTEL_ENABLED: ${OTEL_ENABLED:-true}
+      OTEL_SERVICE_NAME: user-service
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
     depends_on:
       user-db:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+      otel-collector:
+        condition: service_started
     networks:
       - chatapp-network
     healthcheck:
@@ -234,6 +244,9 @@ services:
       JWT_SECRET: ${JWT_SECRET}
       CONSUMER_DEDUPE_ENABLED: ${CONSUMER_DEDUPE_ENABLED:-true}
       CONSUMER_LOCK_TIMEOUT_MS: ${CONSUMER_LOCK_TIMEOUT_MS:-30000}
+      OTEL_ENABLED: ${OTEL_ENABLED:-true}
+      OTEL_SERVICE_NAME: chat-service
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
     depends_on:
       mongo:
         condition: service_healthy
@@ -241,6 +254,8 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
+      otel-collector:
+        condition: service_started
     networks:
       - chatapp-network
     healthcheck:
