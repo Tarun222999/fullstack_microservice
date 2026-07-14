@@ -6,6 +6,7 @@ import (
 	"github.com/Tarun222999/fullstack_microservice/services/email-service/internal/dto"
 	"github.com/Tarun222999/fullstack_microservice/services/email-service/internal/types"
 	"github.com/Tarun222999/fullstack_microservice/services/email-service/internal/validation"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"log"
 	"net/http"
 	"strings"
@@ -25,7 +26,13 @@ func New(config config.Config, sender types.EmailSender) *Server {
 func (s *Server) Routes() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", s.handleHealth)
-	mux.HandleFunc("POST /emails/chat-invite", s.requireInternalAuth(s.handleChatInvite))
+	mux.Handle(
+		"POST /emails/chat-invite",
+		otelhttp.NewHandler(
+			http.HandlerFunc(s.requireInternalAuth(s.handleChatInvite)),
+			"POST /emails/chat-invite",
+		),
+	)
 	return mux
 }
 

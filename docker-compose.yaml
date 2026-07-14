@@ -285,6 +285,13 @@ services:
       BRAND_TEXT_COLOR: ${BRAND_TEXT_COLOR:-#f8fafc}
       BRAND_MUTED_COLOR: ${BRAND_MUTED_COLOR:-#8b95a7}
       BRAND_BORDER_COLOR: ${BRAND_BORDER_COLOR:-#173526}
+      OTEL_ENABLED: ${OTEL_ENABLED:-true}
+      OTEL_SERVICE_NAME: email-service
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+      OTEL_METRIC_EXPORT_INTERVAL_MS: ${OTEL_METRIC_EXPORT_INTERVAL_MS:-5000}
+    depends_on:
+      otel-collector:
+        condition: service_started
     networks:
       - chatapp-network
     healthcheck:

@@ -332,6 +332,24 @@ Learning checkpoint:
 - What is an outbound HTTP client span?
 - Why should email addresses and API keys not be added as span attributes?
 
+Implementation note:
+
+- `email-service` now starts a Go OpenTelemetry tracer and meter provider during process startup.
+- Inbound `POST /emails/chat-invite` requests are wrapped with `otelhttp`.
+- Outbound Resend HTTP calls use an `otelhttp` transport, so provider latency can appear as a child span.
+- `/health` remains uninstrumented to avoid noisy traces.
+- Telemetry startup failure is non-fatal; the service continues without telemetry.
+- Email addresses, invite URLs, and API keys are not added as custom span attributes.
+
+Verification commands:
+
+```powershell
+cd services/email-service
+$env:GOTELEMETRY='off'
+go test ./...
+go build ./...
+```
+
 ## Milestone 6: Add Loki For Centralized Logs
 
 Purpose:
