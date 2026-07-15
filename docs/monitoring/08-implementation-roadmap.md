@@ -53,7 +53,7 @@ user-service       -> OpenTelemetry Collector -> Jaeger
 chat-service      /                           -> Prometheus
 email-service    /
 
-container logs -> Loki
+container logs -> Grafana Alloy -> Loki
 
 Grafana -> Prometheus
 Grafana -> Jaeger
@@ -360,7 +360,7 @@ Files likely touched:
 
 - `docker-compose.yaml`
 - `monitoring/loki/loki.yaml`
-- log shipping configuration
+- `monitoring/alloy/config.alloy`
 - `packages/common/src/logger.ts`
 - `services/email-service/internal/observability/` or logging package
 
@@ -381,6 +381,44 @@ Learning checkpoint:
 - What is a Loki label?
 - Why should labels be low-cardinality?
 - What should never be logged?
+
+Implementation note:
+
+- Grafana Alloy now runs locally as the log shipper.
+- Alloy reads Docker container logs through `/var/run/docker.sock`.
+- Alloy keeps logs for this Compose project and adds useful Loki labels:
+  - `container`
+  - `service`
+  - `compose_project`
+  - `source`
+- Alloy pushes logs to Loki at `http://loki:3100/loki/api/v1/push`.
+- Grafana already has a provisioned Loki datasource, so logs can be queried from Grafana Explore.
+
+Local-only note:
+
+- This Alloy setup is designed for local Docker Compose learning.
+- Railway production may need a different log shipping approach because Railway does not expose Docker container logs through a local Docker socket.
+
+Verification commands:
+
+```powershell
+docker compose up -d loki alloy grafana
+docker compose logs --tail=100 alloy
+```
+
+Grafana Explore queries:
+
+```logql
+{compose_project="fullstack_microservice"}
+```
+
+```logql
+{service="gateway-service"}
+```
+
+```logql
+{service="gateway-service"} |= "error"
+```
 
 ## Milestone 7: Add Trace And Log Correlation
 

@@ -50,8 +50,8 @@ OTel Collector -> Jaeger for traces
 OTel Collector -> /metrics endpoint for Prometheus
 Prometheus -> Grafana for dashboards and exploration
 
-container logs -> Loki later
-Grafana -> Loki later
+container logs -> Grafana Alloy -> Loki
+Grafana -> Loki
 ```
 
 Important labels in this project:
@@ -62,6 +62,9 @@ Important labels in this project:
 - `http_method`: request method, such as `GET` or `POST`.
 - `http_status_code`: response status, such as `200`, `401`, or `500`.
 - `le`: histogram bucket boundary.
+- `service`: Loki label for the Docker Compose service name, such as `gateway-service`.
+- `container`: Loki label for the Docker container name, such as `chatapp-gateway-service`.
+- `compose_project`: Loki label for the Compose project, usually `fullstack_microservice`.
 
 ## Lab 1: Prometheus Targets
 
@@ -388,22 +391,45 @@ Expected learning:
 - Alertmanager sends notifications, but is not required to learn alert logic.
 - Alerts should be rare, actionable, and tied to a response.
 
-## Lab 11: Loki Logs Later
+## Lab 11: Loki Logs
 
 Purpose:
 
-Prepare for log exploration once Loki shipping is added.
+Explore centralized Docker container logs in Grafana.
 
-After Loki is wired, explore:
+Steps:
+
+1. Open `http://localhost:3000`.
+2. Go to `Explore`.
+3. Select datasource `Loki`.
+4. Run:
 
 ```logql
-{container="chatapp-gateway-service"}
+{compose_project="fullstack_microservice"}
 ```
 
-Then:
+Filter by service:
 
 ```logql
-{container="chatapp-gateway-service"} |= "error"
+{service="gateway-service"}
+```
+
+Filter error-looking logs:
+
+```logql
+{service="gateway-service"} |= "error"
+```
+
+Filter auth logs:
+
+```logql
+{service="auth-service"}
+```
+
+Filter email service logs:
+
+```logql
+{service="email-service"}
 ```
 
 Questions:
@@ -417,6 +443,8 @@ Expected learning:
 
 - Loki stores logs.
 - Grafana queries Loki with LogQL.
+- Alloy is the local log shipper.
+- Loki labels should identify broad streams such as service and container.
 - Logs become much more powerful when they include `trace_id` and `span_id`.
 
 ## Lab 12: Debugging Scenarios

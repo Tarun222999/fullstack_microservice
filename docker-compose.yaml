@@ -357,6 +357,26 @@ services:
       - chatapp-network
     restart: unless-stopped
 
+  alloy:
+    image: grafana/alloy:v1.17.0
+    container_name: chatapp-alloy
+    command:
+      - 'run'
+      - '--server.http.listen-addr=0.0.0.0:12345'
+      - '--storage.path=/var/lib/alloy/data'
+      - '/etc/alloy/config.alloy'
+    ports:
+      - '${ALLOY_PORT:-12345}:12345'
+    volumes:
+      - ./monitoring/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - alloy-data:/var/lib/alloy/data
+    depends_on:
+      - loki
+    networks:
+      - chatapp-network
+    restart: unless-stopped
+
   grafana:
     image: grafana/grafana:12.0.2
     container_name: chatapp-grafana
@@ -372,6 +392,7 @@ services:
       - prometheus
       - jaeger
       - loki
+      - alloy
     networks:
       - chatapp-network
     restart: unless-stopped
@@ -385,6 +406,7 @@ volumes:
   prometheus-data:
   loki-data:
   grafana-data:
+  alloy-data:
 
 networks:
   chatapp-network:
