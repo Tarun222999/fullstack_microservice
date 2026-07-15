@@ -451,6 +451,28 @@ Learning checkpoint:
 - Why is correlation useful?
 - Why is `trace_id` better in the log body than as a Loki label?
 
+Implementation note:
+
+- Node services now add `trace_id` and `span_id` to Pino logs automatically when a log happens inside an active OpenTelemetry span.
+- The shared logger in `packages/common/src/logger.ts` reads the current OpenTelemetry context through `@opentelemetry/api`.
+- Go `email-service` has a small request-context helper for extracting trace and span ids from `context.Context`.
+- Request-scoped email-service error logs now include `trace_id` and `span_id`.
+- We intentionally keep `trace_id` in the log body instead of promoting it to a Loki label to avoid high-cardinality labels.
+
+Grafana Loki examples:
+
+```logql
+{service="gateway-service"} |= "trace_id"
+```
+
+```logql
+{service="gateway-service"} |= "YOUR_TRACE_ID"
+```
+
+```logql
+{service="email-service"} |= "trace_id"
+```
+
 ## Milestone 8: Manual Instrumentation For Business Flows
 
 Purpose:

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"github.com/Tarun222999/fullstack_microservice/services/email-service/internal/config"
 	"github.com/Tarun222999/fullstack_microservice/services/email-service/internal/dto"
+	"github.com/Tarun222999/fullstack_microservice/services/email-service/internal/observability"
 	"github.com/Tarun222999/fullstack_microservice/services/email-service/internal/types"
 	"github.com/Tarun222999/fullstack_microservice/services/email-service/internal/validation"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
@@ -67,7 +68,13 @@ func (s *Server) handleChatInvite(w http.ResponseWriter, r *http.Request) {
 		Brand:       s.config.Brand,
 	})
 	if err != nil {
-		log.Printf("failed to send chat invite email: %v", err)
+		logContext := observability.ContextForLog(r.Context())
+		log.Printf(
+			"failed to send chat invite email trace_id=%s span_id=%s error=%v",
+			logContext.TraceID,
+			logContext.SpanID,
+			err,
+		)
 		writeError(w, http.StatusBadGateway, "Email provider request failed")
 		return
 	}

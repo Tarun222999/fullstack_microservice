@@ -447,7 +447,52 @@ Expected learning:
 - Loki labels should identify broad streams such as service and container.
 - Logs become much more powerful when they include `trace_id` and `span_id`.
 
-## Lab 12: Debugging Scenarios
+## Lab 12: Trace And Log Correlation
+
+Purpose:
+
+Use a trace id from Jaeger to find related logs in Loki.
+
+Steps:
+
+1. Open `http://localhost:16686`.
+2. Open a recent `gateway-service` trace.
+3. Copy the trace id from the trace page URL or trace details.
+4. Open Grafana Explore.
+5. Select datasource `Loki`.
+6. Search for that trace id:
+
+```logql
+{service="gateway-service"} |= "PASTE_TRACE_ID_HERE"
+```
+
+Search all app logs:
+
+```logql
+{service=~"gateway-service|auth-service|user-service|chat-service|email-service"} |= "PASTE_TRACE_ID_HERE"
+```
+
+Find logs that contain correlation fields:
+
+```logql
+{service=~"gateway-service|auth-service|user-service|chat-service|email-service"} |= "trace_id"
+```
+
+Questions:
+
+- Which logs belong to the trace?
+- Did the log line happen inside a request span?
+- Is the trace id in the log body or a Loki label?
+- Why would using trace ids as Loki labels be risky?
+
+Expected learning:
+
+- Traces tell you where a request went.
+- Logs tell you what the application said during that request.
+- Correlation lets you jump from "where did it fail?" to "what did the app log?"
+- High-cardinality values like trace ids are better in log content than labels.
+
+## Lab 13: Debugging Scenarios
 
 Purpose:
 
