@@ -457,6 +457,8 @@ Implementation note:
 - The shared logger in `packages/common/src/logger.ts` reads the current OpenTelemetry context through `@opentelemetry/api`.
 - Go `email-service` has a small request-context helper for extracting trace and span ids from `context.Context`.
 - Request-scoped email-service error logs now include `trace_id` and `span_id`.
+- Node services now emit one `http.request.completed` log per non-health HTTP request.
+- These request-completion logs include `trace_id`, `span_id`, method, target, status code, and duration.
 - We intentionally keep `trace_id` in the log body instead of promoting it to a Loki label to avoid high-cardinality labels.
 
 Grafana Loki examples:

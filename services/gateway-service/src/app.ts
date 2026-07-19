@@ -4,6 +4,8 @@ import helmet from 'helmet';
 import { errorHandler } from '@/middleware/error-handler';
 import { registerRoutes } from '@/routes';
 import { env } from '@/config/env';
+import { createRequestLogger } from '@chatapp/common';
+import { logger } from '@/utils/logger';
 
 const allowedOrigins = env.GATEWAY_ALLOWED_ORIGINS.split(',')
   .map((origin) => origin.trim())
@@ -28,6 +30,7 @@ export const createApp = (): Application => {
   );
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
+  app.use(createRequestLogger({ logger, skipPaths: ['/health'] }));
 
   registerRoutes(app);
 

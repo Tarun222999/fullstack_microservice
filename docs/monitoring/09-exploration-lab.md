@@ -478,6 +478,18 @@ Find logs that contain correlation fields:
 {service=~"gateway-service|auth-service|user-service|chat-service|email-service"} |= "trace_id"
 ```
 
+Find request-completion logs across Node services:
+
+```logql
+{service=~"gateway-service|auth-service|user-service|chat-service"} |= "http.request.completed"
+```
+
+Find request-completion logs for one trace:
+
+```logql
+{service=~"gateway-service|auth-service|user-service|chat-service"} |= "PASTE_TRACE_ID_HERE" |= "http.request.completed"
+```
+
 Questions:
 
 - Which logs belong to the trace?

@@ -2,9 +2,10 @@ import { errorHandler } from '@/middleware/error-handler';
 import express, { type Application } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import { createInternalAuthMiddleware } from '@chatapp/common';
+import { createInternalAuthMiddleware, createRequestLogger } from '@chatapp/common';
 import { env } from '@/config/env';
 import { registerRoutes } from '@/routes';
+import { logger } from '@/utils/logger';
 
 export const createApp = (): Application => {
   const app = express();
@@ -18,6 +19,7 @@ export const createApp = (): Application => {
   );
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
+  app.use(createRequestLogger({ logger, skipPaths: ['/health'] }));
   app.use(
     createInternalAuthMiddleware(env.INTERNAL_API_TOKEN, {
       exemptPaths: ['/health'],

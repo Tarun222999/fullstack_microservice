@@ -2,9 +2,10 @@ import express, { type Application } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import { errorHandler } from '@/middleware/error-handler';
-import { createInternalAuthMiddleware } from '@chatapp/common';
+import { createInternalAuthMiddleware, createRequestLogger } from '@chatapp/common';
 import { env } from './config/env';
 import { registerRoutes } from './routes';
+import { logger } from '@/utils/logger';
 
 export const createApp = (): Application => {
   const app = express();
@@ -22,6 +23,13 @@ export const createApp = (): Application => {
 
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
+  app.use(
+    createRequestLogger({
+      logger,
+      skipPaths: ['/health'],
+      skipPathPrefixes: ['/socket.io'],
+    }),
+  );
   app.use((req, res, next) => {
     if (req.path.startsWith('/socket.io')) {
       next();

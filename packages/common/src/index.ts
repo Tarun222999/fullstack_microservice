@@ -6,6 +6,7 @@ export * from './http/async-handler';
 export * from './http/validate-request';
 export * from './http/internal-auth';
 export * from './http/auth';
+export * from './http/request-logger';
 export * from './events/event-type';
 export * from './events/auth-event';
 export * from './events/user-events';
