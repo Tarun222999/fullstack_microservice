@@ -11,7 +11,7 @@ import {
   verifyPassword,
   verifyRefreshToken,
 } from '@/utils/token';
-import { HttpError } from '@chatapp/common';
+import { captureTraceCarrier, HttpError } from '@chatapp/common';
 import { Op, Transaction } from 'sequelize';
 import { AUTH_EVENT_EXCHANGE, AUTH_USER_REGISTERED_ROUTING_KEY } from '@chatapp/common';
 
@@ -64,6 +64,7 @@ export const register = async (input: RegisterInput): Promise<AuthResponse> => {
             eventId,
             aggregateType: 'user',
             aggregateId: user.id,
+            traceCarrier: captureTraceCarrier(),
           },
         },
         transaction,
@@ -79,7 +80,7 @@ export const register = async (input: RegisterInput): Promise<AuthResponse> => {
     });
 
     if (!env.OUTBOX_ENABLED) {
-      publishingUserRegistered(userData);
+      await publishingUserRegistered(userData);
     }
     return {
       accessToken,

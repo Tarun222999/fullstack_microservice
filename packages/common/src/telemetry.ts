@@ -5,12 +5,22 @@ import { PeriodicExportingMetricReader } from '@opentelemetry/sdk-metrics';
 import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node';
 import { resourceFromAttributes } from '@opentelemetry/resources';
 import { ATTR_SERVICE_NAME } from '@opentelemetry/semantic-conventions';
+import {
+  context,
+  propagation,
+  SpanStatusCode,
+  trace,
+  type Attributes,
+  type Span,
+} from '@opentelemetry/api';
 
 type NodeTelemetryOptions = {
   serviceName: string;
 };
 
 let sdk: NodeSDK | undefined;
+
+export type TraceCarrier = Record<string, string>;
 
 const isTelemetryEnabled = () => (process.env.OTEL_ENABLED ?? '').toLowerCase() === 'true';
 
@@ -73,4 +83,82 @@ export const shutdownNodeTelemetry = async () => {
   } finally {
     sdk = undefined;
   }
+};
+
+export const captureTraceCarrier = (): TraceCarrier => {
+  try {
+    const carrier: TraceCarrier = {};
+    propagation.inject(context.active(), carrier);
+    return carrier;
+  } catch {
+    return {};
+  }
+};
+
+export const contextFromTraceCarrier = (carrier?: Record<string, unknown>) => {
+  if (!carrier) {
+    return context.active();
+  }
+
+  try {
+    const textCarrier = Object.entries(carrier).reduce<TraceCarrier>((acc, [key, value]) => {
+      if (typeof value === 'string') {
+        acc[key] = value;
+        return acc;
+      }
+
+      if (value instanceof Uint8Array) {
+        acc[key] = new TextDecoder().decode(value);
+        return acc;
+      }
+
+      if (typeof value === 'number' || typeof value === 'boolean') {
+        acc[key] = String(value);
+      }
+
+      return acc;
+    }, {});
+
+    return propagation.extract(context.active(), textCarrier);
+  } catch {
+    return context.active();
+  }
+};
+
+export const runWithBusinessSpan = async <T>(
+  name: string,
+  attributes: Attributes,
+  fn: (span: Span) => Promise<T> | T,
+): Promise<T> => {
+  const tracer = trace.getTracer('chatapp-business-flows');
+
+  return tracer.startActiveSpan(name, { attributes }, async (span) => {
+    try {
+      return await fn(span);
+    } catch (error) {
+      recordBusinessSpanError(span, error);
+      throw error;
+    } finally {
+      span.end();
+    }
+  });
+};
+
+export const runWithBusinessSpanFromCarrier = async <T>(
+  carrier: Record<string, unknown> | undefined,
+  name: string,
+  attributes: Attributes,
+  fn: (span: Span) => Promise<T> | T,
+): Promise<T> => {
+  return context.with(contextFromTraceCarrier(carrier), () =>
+    runWithBusinessSpan(name, attributes, fn),
+  );
+};
+
+export const recordBusinessSpanError = (span: Span, error: unknown) => {
+  span.recordException(error as Error);
+  span.setStatus({
+    code: SpanStatusCode.ERROR,
+    message: error instanceof Error ? error.message : String(error),
+  });
 };

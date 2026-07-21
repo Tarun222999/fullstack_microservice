@@ -1,6 +1,8 @@
 import {
   AUTH_EVENT_EXCHANGE,
   AUTH_USER_REGISTERED_ROUTING_KEY,
+  recordBusinessSpanError,
+  runWithBusinessSpanFromCarrier,
   type AuthRegisteredEvent,
 } from '@chatapp/common';
 
@@ -41,38 +43,59 @@ const closeConnection = async (conn: ManageConnection) => {
 const handleMessage = async (message: ConsumeMessage, ch: Channel) => {
   const raw = message.content.toString('utf-8');
   const event = JSON.parse(raw) as AuthRegisteredEvent;
-  const eventId = (event.metadata as { eventId?: string } | undefined)?.eventId;
+  const metadata = event.metadata as
+    | { eventId?: string; traceCarrier?: Record<string, unknown> }
+    | undefined;
+  const eventId = metadata?.eventId;
+  const traceCarrier =
+    message.properties.headers && 'traceparent' in message.properties.headers
+      ? message.properties.headers
+      : metadata?.traceCarrier;
 
-  if (!eventId) {
-    logger.warn({ eventType: event.type }, 'consumer.event_id_missing');
-    await userService.syncFromAuthUser(event.payload);
-    ch.ack(message);
-    return;
-  }
+  await runWithBusinessSpanFromCarrier(
+    traceCarrier,
+    'user.auth_event.consume',
+    {
+      'messaging.system': 'rabbitmq',
+      'messaging.destination.name': QUEUE_NAME,
+      'messaging.operation.name': 'process',
+      'event.type': event.type,
+      ...(eventId ? { 'event.id': eventId } : {}),
+    },
+    async (span) => {
+      if (!eventId) {
+        logger.warn({ eventType: event.type }, 'consumer.event_id_missing');
+        await userService.syncFromAuthUser(event.payload);
+        ch.ack(message);
+        return;
+      }
 
-  const beginResult = await beginProcessingEvent(eventId, event.type, CONSUMER_NAME);
-  if (beginResult !== 'acquired') {
-    logger.info({ eventId, beginResult }, 'consumer.duplicate');
-    if (beginResult === 'duplicate') {
-      ch.ack(message);
-    }
-    return;
-  }
+      const beginResult = await beginProcessingEvent(eventId, event.type, CONSUMER_NAME);
+      if (beginResult !== 'acquired') {
+        logger.info({ eventId, beginResult }, 'consumer.duplicate');
+        if (beginResult === 'duplicate') {
+          ch.ack(message);
+        }
+        return;
+      }
 
-  try {
-    await userService.syncFromAuthUser(event.payload);
-    await markProcessedEvent(eventId);
-    logger.info({ eventId }, 'consumer.processed');
-    ch.ack(message);
-  } catch (error) {
-    try {
-      await markFailedEvent(eventId, error);
-    } catch (markError) {
-      logger.error({ err: markError, eventId }, 'consumer.mark_failed_error');
-    }
-    logger.error({ err: error, eventId }, 'consumer.failed');
-    ch.nack(message, false, false);
-  }
+      try {
+        await userService.syncFromAuthUser(event.payload);
+        await markProcessedEvent(eventId);
+        logger.info({ eventId }, 'consumer.processed');
+        ch.ack(message);
+      } catch (error) {
+        recordBusinessSpanError(span, error);
+        try {
+          await markFailedEvent(eventId, error);
+        } catch (markError) {
+          logger.error({ err: markError, eventId }, 'consumer.mark_failed_error');
+        }
+        logger.error({ err: error, eventId }, 'consumer.failed');
+        ch.nack(message, false, false);
+      }
+    },
+  );
 };
 
 export const startAuthEventConsumer = async () => {

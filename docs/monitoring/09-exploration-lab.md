@@ -504,7 +504,112 @@ Expected learning:
 - Correlation lets you jump from "where did it fail?" to "what did the app log?"
 - High-cardinality values like trace ids are better in log content than labels.
 
-## Lab 13: Debugging Scenarios
+## Lab 13: RabbitMQ Trace Propagation
+
+Purpose:
+
+See how a trace can cross an async boundary.
+
+Before this milestone, HTTP traces connected naturally because OpenTelemetry passed trace headers through HTTP calls. RabbitMQ is different: a message may be published now and consumed later, possibly by another process. To connect the flow, the publisher must inject trace context into message headers, and the consumer must extract it before creating its span.
+
+Steps:
+
+1. Start the stack.
+2. Register a new user through the app or the gateway API.
+3. Open `http://localhost:16686`.
+4. Search recent traces for `auth-service`.
+5. Open the register trace.
+6. Look for manual spans:
+
+```text
+auth.outbox.publish
+user.auth_event.consume
+user.outbox.publish
+chat.user_event.consume
+```
+
+If outbox is enabled, the important publish spans are usually:
+
+```text
+auth.outbox.publish
+user.outbox.publish
+```
+
+If outbox is disabled, the direct publish spans are usually:
+
+```text
+auth.user_registered.publish
+user.created.publish
+```
+
+Then search Loki with the trace id:
+
+```logql
+{service=~"gateway-service|auth-service|user-service|chat-service"} |= "PASTE_TRACE_ID_HERE"
+```
+
+Find consumer logs:
+
+```logql
+{service="user-service"} |= "consumer.processed"
+```
+
+Find chat projection consumer logs:
+
+```logql
+{service="chat-service"} |= "consumer.processed"
+```
+
+Questions:
+
+- Does the user-service consume span appear in the same trace as the auth-service request?
+- Does the chat-service consume span appear after the user-service publish span?
+- Which span represents publishing the message?
+- Which span represents consuming the message?
+- What RabbitMQ attributes are useful?
+- Why should the trace id travel in message headers instead of the event payload?
+
+Expected learning:
+
+- Auto-instrumentation handles many HTTP/database spans.
+- Async messaging often needs manual propagation.
+- A trace can describe a business workflow, not only one HTTP request.
+- Safe span attributes help debugging without leaking user data.
+- In this project, RabbitMQ trace context is sent through headers and also copied into event metadata as a local fallback.
+
+## Lab 14: Email Send Business Span
+
+Purpose:
+
+Separate "email request received" from "business operation to send an invite email."
+
+Steps:
+
+1. Trigger a chat invite email flow.
+2. Open Jaeger.
+3. Search recent traces for `email-service`.
+4. Open the trace and look for:
+
+```text
+POST /emails/chat-invite
+email.chat_invite.send
+HTTP POST
+```
+
+Questions:
+
+- Which span is the inbound email-service request?
+- Which span represents the business action?
+- Which span represents the outbound provider call?
+- If sending fails, which span is marked as failed?
+
+Expected learning:
+
+- Auto HTTP spans are useful, but business spans make intent obvious.
+- Provider calls should be child spans of the business operation.
+- Email addresses, invite URLs, and API keys should not be span attributes.
+
+## Lab 15: Debugging Scenarios
 
 Purpose:
 

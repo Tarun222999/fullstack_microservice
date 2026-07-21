@@ -5,6 +5,7 @@ import { userRepository, UserRepository } from '@/repository/user.repositories';
 import { CreateUserInput, GetUsersByIdsInput, User, UserSummary } from '@/types/user';
 import {
   AuthUserRegisteredPayload,
+  captureTraceCarrier,
   HttpError,
   USER_CREATED_ROUTING_KEY,
   USER_EVENTS_EXCHANGE,
@@ -51,6 +52,7 @@ class UserService {
 
       return sequelize.transaction(async (transaction) => {
         const user = await this.repository.create(input, transaction);
+        const traceCarrier = captureTraceCarrier();
         const payload = {
           type: USER_CREATED_ROUTING_KEY,
           payload: {
@@ -62,7 +64,7 @@ class UserService {
           },
           occurredAt: new Date().toISOString(),
           occuredAt: new Date().toISOString(),
-          metadata: { version: 1 },
+          metadata: { version: 1, traceCarrier },
         };
         await enqueueOutboxEvent(
           {
@@ -73,6 +75,7 @@ class UserService {
             metadata: {
               aggregateType: 'user',
               aggregateId: user.id,
+              traceCarrier,
             },
           },
           transaction,
@@ -142,6 +145,7 @@ class UserService {
 
     return sequelize.transaction(async (transaction) => {
       const user = await this.repository.upsertFromAuthEvent(payload, transaction);
+      const traceCarrier = captureTraceCarrier();
       const eventPayload = {
         type: USER_CREATED_ROUTING_KEY,
         payload: {
@@ -153,7 +157,7 @@ class UserService {
         },
         occurredAt: new Date().toISOString(),
         occuredAt: new Date().toISOString(),
-        metadata: { version: 1 },
+        metadata: { version: 1, traceCarrier },
       };
       await enqueueOutboxEvent(
         {
@@ -164,6 +168,7 @@ class UserService {
           metadata: {
             aggregateType: 'user',
             aggregateId: user.id,
+            traceCarrier,
           },
         },
         transaction,

@@ -10,6 +10,8 @@ import { logger } from '@/utils/logger';
 import {
   USER_CREATED_ROUTING_KEY,
   USER_EVENTS_EXCHANGE,
+  recordBusinessSpanError,
+  runWithBusinessSpanFromCarrier,
   type UserCreatedEvent,
 } from '@chatapp/common';
 
@@ -61,33 +63,55 @@ export const startConsumers = async () => {
     void (async () => {
       const payload = message.content.toString('utf-8');
       const event = JSON.parse(payload) as UserCreatedEvent;
-      const eventId = (event.metadata as { eventId?: string } | undefined)?.eventId;
-      if (!eventId) {
-        logger.warn({ eventType: event.type }, 'consumer.event_id_missing');
-        await handleUserCreated(event);
-        ch.ack(message);
-        return;
-      }
+      const metadata = event.metadata as
+        | { eventId?: string; traceCarrier?: Record<string, unknown> }
+        | undefined;
+      const eventId = metadata?.eventId;
+      const traceCarrier =
+        message.properties.headers && 'traceparent' in message.properties.headers
+          ? message.properties.headers
+          : metadata?.traceCarrier;
 
-      const beginResult = await beginProcessingEvent(eventId, event.type, CONSUMER_NAME);
-      if (beginResult !== 'acquired') {
-        logger.info({ eventId, beginResult }, 'consumer.duplicate');
-        if (beginResult === 'duplicate') {
-          ch.ack(message);
-        }
-        return;
-      }
+      await runWithBusinessSpanFromCarrier(
+        traceCarrier,
+        'chat.user_event.consume',
+        {
+          'messaging.system': 'rabbitmq',
+          'messaging.destination.name': EVENT_QUEUE,
+          'messaging.operation.name': 'process',
+          'event.type': event.type,
+          ...(eventId ? { 'event.id': eventId } : {}),
+        },
+        async (span) => {
+          if (!eventId) {
+            logger.warn({ eventType: event.type }, 'consumer.event_id_missing');
+            await handleUserCreated(event);
+            ch.ack(message);
+            return;
+          }
 
-      try {
-        await handleUserCreated(event);
-        await markProcessedEvent(eventId);
-        logger.info({ eventId }, 'consumer.processed');
-        ch.ack(message);
-      } catch (error) {
-        await markFailedEvent(eventId, error);
-        logger.error({ err: error, eventId }, 'consumer.failed');
-        ch.nack(message, false, false);
-      }
+          const beginResult = await beginProcessingEvent(eventId, event.type, CONSUMER_NAME);
+          if (beginResult !== 'acquired') {
+            logger.info({ eventId, beginResult }, 'consumer.duplicate');
+            if (beginResult === 'duplicate') {
+              ch.ack(message);
+            }
+            return;
+          }
+
+          try {
+            await handleUserCreated(event);
+            await markProcessedEvent(eventId);
+            logger.info({ eventId }, 'consumer.processed');
+            ch.ack(message);
+          } catch (error) {
+            recordBusinessSpanError(span, error);
+            await markFailedEvent(eventId, error);
+            logger.error({ err: error, eventId }, 'consumer.failed');
+            ch.nack(message, false, false);
+          }
+        },
+      );
     })().catch((error: unknown) => {
       logger.error({ err: error }, 'Failed to process event');
       ch.nack(message, false, false);

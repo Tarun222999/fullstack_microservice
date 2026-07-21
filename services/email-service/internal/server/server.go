@@ -8,6 +8,10 @@ import (
 	"github.com/Tarun222999/fullstack_microservice/services/email-service/internal/types"
 	"github.com/Tarun222999/fullstack_microservice/services/email-service/internal/validation"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 	"log"
 	"net/http"
 	"strings"
@@ -59,7 +63,17 @@ func (s *Server) handleChatInvite(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id, err := s.sender.SendChatInvite(r.Context(), types.ChatInviteEmail{
+	ctx, span := otel.Tracer("chatapp-business-flows").Start(
+		r.Context(),
+		"email.chat_invite.send",
+		trace.WithAttributes(
+			attribute.String("email.provider", "resend"),
+			attribute.String("email.type", "chat_invite"),
+		),
+	)
+	defer span.End()
+
+	id, err := s.sender.SendChatInvite(ctx, types.ChatInviteEmail{
 		To:          strings.TrimSpace(payload.To),
 		InviteURL:   strings.TrimSpace(payload.InviteURL),
 		InviterName: strings.TrimSpace(payload.InviterName),
@@ -68,7 +82,9 @@ func (s *Server) handleChatInvite(w http.ResponseWriter, r *http.Request) {
 		Brand:       s.config.Brand,
 	})
 	if err != nil {
-		logContext := observability.ContextForLog(r.Context())
+		span.RecordError(err)
+		span.SetStatus(codes.Error, err.Error())
+		logContext := observability.ContextForLog(ctx)
 		log.Printf(
 			"failed to send chat invite email trace_id=%s span_id=%s error=%v",
 			logContext.TraceID,

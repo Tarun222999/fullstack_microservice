@@ -508,6 +508,42 @@ Learning checkpoint:
 - When should we add manual spans?
 - What attributes are safe and useful?
 
+Implementation note:
+
+- `packages/common/src/telemetry.ts` now exposes small business-span helpers.
+- Trace-carrier capture/extraction is fail-open. If OpenTelemetry context handling fails, the app continues without breaking business logic.
+- RabbitMQ trace propagation now uses message headers plus event metadata fallback, so async consumers can continue the parent trace more reliably.
+- `auth-service` captures the active trace context when it enqueues a user registration outbox event.
+- The auth outbox publisher restores that context, creates an `auth.outbox.publish` span, and sends the trace context as RabbitMQ message headers.
+- The direct auth publisher creates an `auth.user_registered.publish` span and also sends trace context headers.
+- `user-service` extracts RabbitMQ trace headers before processing auth events and creates a `user.auth_event.consume` span.
+- `user-service` captures trace context when enqueueing/publishing `user.created` events.
+- The user outbox publisher creates a `user.outbox.publish` span.
+- The direct user publisher creates a `user.created.publish` span.
+- `chat-service` extracts user-event trace context and creates a `chat.user_event.consume` span.
+- `email-service` creates an `email.chat_invite.send` span around the chat-invite email operation.
+- Span attributes intentionally use operational values such as event type, event id, exchange, queue, and routing key. We do not add email addresses, display names, tokens, passwords, or message bodies.
+
+Verification commands:
+
+```powershell
+pnpm --filter @chatapp/common build
+pnpm --filter user-service build
+pnpm --filter chat-service build
+pnpm --filter @chatapp/auth-service build
+cd services/email-service
+$env:GOTELEMETRY='off'
+go test ./...
+go build ./...
+```
+
+Current verification note:
+
+- `@chatapp/common`, `user-service`, and `chat-service` compile successfully.
+- `email-service` tests and build pass locally with Go telemetry disabled and build cache pointed inside the workspace.
+- `auth-service` still has the known build-config issue where test files are included in the production build and Vitest types are not available in the active install.
+- The auth build issue should be handled separately from this observability milestone.
+
 ## Milestone 9: Grafana Dashboards
 
 Purpose:
