@@ -134,8 +134,6 @@ services:
         condition: service_healthy
       chat-service:
         condition: service_healthy
-      otel-collector:
-        condition: service_started
     networks:
       - chatapp-network
     healthcheck:
@@ -175,8 +173,6 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
-      otel-collector:
-        condition: service_started
     networks:
       - chatapp-network
     healthcheck:
@@ -215,8 +211,6 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
-      otel-collector:
-        condition: service_started
     networks:
       - chatapp-network
     healthcheck:
@@ -254,8 +248,6 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
-      otel-collector:
-        condition: service_started
     networks:
       - chatapp-network
     healthcheck:
@@ -289,9 +281,6 @@ services:
       OTEL_SERVICE_NAME: email-service
       OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
       OTEL_METRIC_EXPORT_INTERVAL_MS: ${OTEL_METRIC_EXPORT_INTERVAL_MS:-5000}
-    depends_on:
-      otel-collector:
-        condition: service_started
     networks:
       - chatapp-network
     healthcheck:
