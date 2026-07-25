@@ -14,7 +14,6 @@
     }
   },
   "include": ["src"],
-  "references": [
-    { "path": "../../packages/common" }
-  ]
+  "exclude": ["src/**/*.test.ts", "src/**/*.spec.ts", "src/test/**"],
+  "references": [{ "path": "../../packages/common" }]
 }

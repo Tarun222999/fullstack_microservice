@@ -1,4 +1,5 @@
 import pino from 'pino';
+import { context, trace } from '@opentelemetry/api';
 
 import type { Logger, LoggerOptions } from 'pino';
 
@@ -29,6 +30,19 @@ export const createLogger = (options: CreateLoggerOptions): Logger => {
   return pino({
     name,
     level: process.env.LOG_LEVEL || 'info',
+    mixin() {
+      const span = trace.getSpan(context.active());
+      const spanContext = span?.spanContext();
+
+      if (!spanContext?.traceId || !spanContext?.spanId) {
+        return {};
+      }
+
+      return {
+        trace_id: spanContext.traceId,
+        span_id: spanContext.spanId,
+      };
+    },
     transport,
     ...rest,
   });

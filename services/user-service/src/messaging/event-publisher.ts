@@ -1,4 +1,11 @@
-import { USER_CREATED_ROUTING_KEY, USER_EVENTS_EXCHANGE } from '@chatapp/common';
+import {
+  USER_CREATED_ROUTING_KEY,
+  USER_EVENTS_EXCHANGE,
+  captureTraceCarrier,
+  runWithBusinessSpan,
+  runWithBusinessSpanFromCarrier,
+  type TraceCarrier,
+} from '@chatapp/common';
 import amqplib from 'amqplib';
 import { Op } from 'sequelize';
 
@@ -84,24 +91,47 @@ const publishOutboxRow = async (row: OutboxEvent) => {
   if (!ch) {
     throw new Error('RabbitMQ channel is not initialized');
   }
+  const metadata = row.metadataJson
+    ? (JSON.parse(row.metadataJson) as { eventId?: string; traceCarrier?: TraceCarrier })
+    : undefined;
   const rawEvent = JSON.parse(row.payloadJson) as { metadata?: Record<string, unknown> };
   const eventWithId = {
     ...rawEvent,
     metadata: {
       ...(rawEvent.metadata ?? {}),
       eventId: row.id,
+      ...(metadata?.traceCarrier ? { traceCarrier: metadata.traceCarrier } : {}),
     },
   };
 
-  const success = ch.publish(
-    row.exchangeName,
-    row.routingKey,
-    Buffer.from(JSON.stringify(eventWithId)),
-    { contentType: 'application/json', persistent: true },
+  await runWithBusinessSpanFromCarrier(
+    metadata?.traceCarrier,
+    'user.outbox.publish',
+    {
+      'messaging.system': 'rabbitmq',
+      'messaging.destination.name': row.exchangeName,
+      'messaging.rabbitmq.routing_key': row.routingKey,
+      'event.type': row.eventType,
+      'event.id': row.id,
+    },
+    () => {
+      const traceCarrier = captureTraceCarrier();
+      eventWithId.metadata.traceCarrier = traceCarrier;
+      const success = ch.publish(
+        row.exchangeName,
+        row.routingKey,
+        Buffer.from(JSON.stringify(eventWithId)),
+        {
+          contentType: 'application/json',
+          persistent: true,
+          headers: traceCarrier,
+        },
+      );
+      if (!success) {
+        throw new Error('Failed to publish outbox event');
+      }
+    },
   );
-  if (!success) {
-    throw new Error('Failed to publish outbox event');
-  }
 };
 
 const computeBackoffMs = (attempts: number) =>
@@ -238,19 +268,40 @@ export const publishUserCreatedEvent = async (payload: UserCreatedPayload) => {
     type: USER_CREATED_ROUTING_KEY,
     payload,
     occuredAt: new Date().toISOString(),
-    metadata: { version: 1, eventId: crypto.randomUUID() } as Record<string, unknown>,
+    metadata: { version: 1, eventId: crypto.randomUUID(), traceCarrier: {} } as Record<
+      string,
+      unknown
+    >,
   };
 
   try {
-    const success = ch.publish(
-      USER_EVENTS_EXCHANGE,
-      USER_CREATED_ROUTING_KEY,
-      Buffer.from(JSON.stringify(event)),
-      { contentType: 'application/json', persistent: true },
+    await runWithBusinessSpan(
+      'user.created.publish',
+      {
+        'messaging.system': 'rabbitmq',
+        'messaging.destination.name': USER_EVENTS_EXCHANGE,
+        'messaging.rabbitmq.routing_key': USER_CREATED_ROUTING_KEY,
+        'event.type': USER_CREATED_ROUTING_KEY,
+        'event.id': (event.metadata as { eventId: string }).eventId,
+      },
+      () => {
+        const traceCarrier = captureTraceCarrier();
+        (event.metadata as Record<string, unknown>).traceCarrier = traceCarrier;
+        const success = ch.publish(
+          USER_EVENTS_EXCHANGE,
+          USER_CREATED_ROUTING_KEY,
+          Buffer.from(JSON.stringify(event)),
+          {
+            contentType: 'application/json',
+            persistent: true,
+            headers: traceCarrier,
+          },
+        );
+        if (!success) {
+          logger.warn({ event }, 'Failed to publish user.created event');
+        }
+      },
     );
-    if (!success) {
-      logger.warn({ event }, 'Failed to publish user.created event');
-    }
   } catch (error) {
     logger.error({ err: error }, 'Error publishing user.created event');
   }

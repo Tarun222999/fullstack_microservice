@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/Tarun222999/fullstack_microservice/services/email-service/internal/types"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"io"
 	"net/http"
 	"time"
@@ -33,7 +34,8 @@ func NewResendSender(apiKey string) *ResendSender {
 	return &ResendSender{
 		apiKey: apiKey,
 		httpClient: &http.Client{
-			Timeout: 10 * time.Second,
+			Timeout:   10 * time.Second,
+			Transport: otelhttp.NewTransport(http.DefaultTransport),
 		},
 	}
 }

@@ -4,7 +4,11 @@ import { logger } from '@/utils/logger';
 import {
   AUTH_EVENT_EXCHANGE,
   AUTH_USER_REGISTERED_ROUTING_KEY,
+  captureTraceCarrier,
+  runWithBusinessSpan,
+  runWithBusinessSpanFromCarrier,
   type AuthUserRegisteredPayload,
+  type TraceCarrier,
 } from '@chatapp/common';
 import { Op } from 'sequelize';
 import { Channel, connect, type ChannelModel } from 'amqplib';
@@ -47,23 +51,47 @@ const publishOutboxRow = async (row: OutboxEvent) => {
   if (!ch) {
     throw new Error('RabbitMQ channel is not initialized');
   }
+  const metadata = row.metadataJson
+    ? (JSON.parse(row.metadataJson) as { eventId?: string; traceCarrier?: TraceCarrier })
+    : undefined;
   const rawEvent = JSON.parse(row.payloadJson) as { metadata?: Record<string, unknown> };
   const eventWithId = {
     ...rawEvent,
     metadata: {
       ...(rawEvent.metadata ?? {}),
       eventId: row.id,
+      ...(metadata?.traceCarrier ? { traceCarrier: metadata.traceCarrier } : {}),
     },
   };
-  const published = ch.publish(
-    row.exchangeName,
-    row.routingKey,
-    Buffer.from(JSON.stringify(eventWithId)),
-    { contentType: 'application/json', persistent: true },
+
+  await runWithBusinessSpanFromCarrier(
+    metadata?.traceCarrier,
+    'auth.outbox.publish',
+    {
+      'messaging.system': 'rabbitmq',
+      'messaging.destination.name': row.exchangeName,
+      'messaging.rabbitmq.routing_key': row.routingKey,
+      'event.type': row.eventType,
+      'event.id': row.id,
+    },
+    () => {
+      const traceCarrier = captureTraceCarrier();
+      eventWithId.metadata.traceCarrier = traceCarrier;
+      const published = ch.publish(
+        row.exchangeName,
+        row.routingKey,
+        Buffer.from(JSON.stringify(eventWithId)),
+        {
+          contentType: 'application/json',
+          persistent: true,
+          headers: traceCarrier,
+        },
+      );
+      if (!published) {
+        throw new Error('Failed to publish outbox event');
+      }
+    },
   );
-  if (!published) {
-    throw new Error('Failed to publish outbox event');
-  }
 };
 
 const computeBackoffMs = (attempts: number) =>
@@ -172,7 +200,7 @@ export const stopOutboxPublisher = async () => {
   outboxTimer = null;
 };
 
-export const publishingUserRegistered = (payload: AuthUserRegisteredPayload) => {
+export const publishingUserRegistered = async (payload: AuthUserRegisteredPayload) => {
   if (!channel) {
     logger.warn('RabbitMQ channel is not initialized.Cannot publish message');
     return;
@@ -182,19 +210,37 @@ export const publishingUserRegistered = (payload: AuthUserRegisteredPayload) => 
     type: AUTH_USER_REGISTERED_ROUTING_KEY,
     payload,
     occuredAt: new Date().toISOString(),
-    metadata: { version: 1, eventId: crypto.randomUUID() },
+    metadata: { version: 1, eventId: crypto.randomUUID(), traceCarrier: {} as TraceCarrier },
   };
 
-  const published = channel?.publish(
-    AUTH_EVENT_EXCHANGE,
-    AUTH_USER_REGISTERED_ROUTING_KEY,
-    Buffer.from(JSON.stringify(event)),
-    { contentType: 'application/json', persistent: true },
-  );
+  await runWithBusinessSpan(
+    'auth.user_registered.publish',
+    {
+      'messaging.system': 'rabbitmq',
+      'messaging.destination.name': AUTH_EVENT_EXCHANGE,
+      'messaging.rabbitmq.routing_key': AUTH_USER_REGISTERED_ROUTING_KEY,
+      'event.type': AUTH_USER_REGISTERED_ROUTING_KEY,
+      'event.id': event.metadata.eventId,
+    },
+    () => {
+      const traceCarrier = captureTraceCarrier();
+      event.metadata.traceCarrier = traceCarrier;
+      const published = channel?.publish(
+        AUTH_EVENT_EXCHANGE,
+        AUTH_USER_REGISTERED_ROUTING_KEY,
+        Buffer.from(JSON.stringify(event)),
+        {
+          contentType: 'application/json',
+          persistent: true,
+          headers: traceCarrier,
+        },
+      );
 
-  if (!published) {
-    logger.warn({ event }, 'Failed to publish user registered event');
-  }
+      if (!published) {
+        logger.warn({ event }, 'Failed to publish user registered event');
+      }
+    },
+  );
 };
 
 export const closePublisher = async () => {
