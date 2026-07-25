@@ -2,10 +2,12 @@
 
 ## Status
 
-This document is the agreed implementation plan. Phase 1 code changes are implemented:
-application services no longer depend on the collector in Docker Compose, and Go telemetry
-now defaults to disabled with focused tests. The Railway services and later phases have not
-been implemented.
+This document is the agreed implementation plan. Phase 1 is complete: application services no
+longer depend on the collector in Docker Compose, and Go telemetry defaults to disabled with
+focused tests. Phase 2 repository changes are implemented: the four pinned Railway images and
+Railway-specific Collector, Prometheus, and Grafana configuration are present. Their Docker image
+builds have been verified locally, along with the packaged Collector and Prometheus configuration.
+Railway resources and deployment automation from Phase 3 onward have not been implemented.
 
 ## Decisions
 
