@@ -96,9 +96,11 @@ export const register = async (input: RegisterInput): Promise<AuthResponse> => {
   }
 
   if (!env.OUTBOX_ENABLED && userData) {
-    await publishingUserRegistered(userData).catch((error: unknown) => {
+    try {
+      await publishingUserRegistered(userData);
+    } catch (error) {
       logger.error({ err: error, userId: userData.id }, 'Failed to publish user registered event');
-    });
+    }
   }
 
   return response as AuthResponse;
