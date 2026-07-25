@@ -122,6 +122,37 @@ That means:
 
 This is intentional for the first production deployment phase.
 
+## Production Service Controls
+
+The manual `.github/workflows/service-control.yml` workflow controls production replica counts
+without deleting Railway services, variables, deployments, or persistent volumes. It supports:
+
+- `start-all`
+- `stop-all`
+- `start-applications`
+- `stop-applications`
+- `start-monitoring`
+- `stop-monitoring`
+- `start-data-services`
+- `stop-data-services`
+
+Start operations scale the selected services to one replica. Stop operations scale them to zero
+replicas and require the `confirm_stop` checkbox. The selected Railway region must match the
+service region configured under Railway **Settings > Deploy > Regions**.
+
+The service groups are:
+
+- applications: `auth-service`, `user-service`, `chat-service`, `email-service`, and
+  `gateway-service`
+- monitoring: `jaeger`, `otel-collector`, `prometheus`, and `grafana`
+- data: `mysql`, `postgres`, `mongo`, `redis`, and `rabbitmq`
+
+All three production workflows share the `production-railway-operations` concurrency group so a
+deployment and a scale operation cannot modify production simultaneously.
+
+Stateful data is only retained when the corresponding Railway service uses persistent managed
+storage or a volume. Scaling an ephemeral stateful service to zero does not make its data durable.
+
 ## Future Evolution
 
 Likely future improvements:

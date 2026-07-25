@@ -34,7 +34,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: production-observability-deploy
+  group: production-railway-operations
   cancel-in-progress: false
 
 jobs:
