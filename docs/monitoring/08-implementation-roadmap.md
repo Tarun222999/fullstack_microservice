@@ -580,6 +580,42 @@ Learning checkpoint:
 - Which panels are noise?
 - What alert would be worth waking someone up for?
 
+Implementation note:
+
+- Grafana now provisions a `Chat App Service Health` dashboard automatically.
+- Dashboard files live under `monitoring/grafana/provisioning/dashboards/`.
+- Datasources have stable UIDs:
+  - `prometheus`
+  - `jaeger`
+  - `loki`
+- The first dashboard includes:
+  - Request rate by service.
+  - 5xx error rate by service.
+  - p95 HTTP latency by service.
+  - Node heap memory by service.
+  - Recent Loki logs that contain `trace_id`.
+- Specialized dashboards now include:
+  - `Chat App Async Business Flows`.
+  - `Chat App Email Service`.
+- The async dashboard uses Loki-derived counts for `consumer.processed`, consumer failures, and outbox failure logs.
+- The email dashboard uses Prometheus HTTP metrics plus Loki provider-failure logs.
+- RabbitMQ broker-level metrics such as queue depth, ready messages, unacked messages, and publish/ack rates are not available yet. Those require enabling RabbitMQ Prometheus metrics or adding a RabbitMQ exporter.
+
+Verification:
+
+```powershell
+docker compose config --quiet
+docker compose restart grafana
+```
+
+Open Grafana:
+
+```text
+http://localhost:3000/d/chatapp-service-health/chat-app-service-health
+http://localhost:3000/d/chatapp-async-business-flows/chat-app-async-business-flows
+http://localhost:3000/d/chatapp-email-service/chat-app-email-service
+```
+
 ## Milestone 10: Alerts And Production Readiness
 
 Purpose:
