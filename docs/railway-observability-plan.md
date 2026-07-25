@@ -7,7 +7,9 @@ longer depend on the collector in Docker Compose, and Go telemetry defaults to d
 focused tests. Phase 2 repository changes are implemented: the four pinned Railway images and
 Railway-specific Collector, Prometheus, and Grafana configuration are present. Their Docker image
 builds have been verified locally, along with the packaged Collector and Prometheus configuration.
-Railway resources and deployment automation from Phase 3 onward have not been implemented.
+Phase 3 is in progress: the four empty Railway services have been created without volumes, and the
+separate checkbox-based observability deployment workflow is implemented. The first Railway
+deployments and application connection from Phase 4 onward have not been completed.
 
 ## Decisions
 
@@ -137,17 +139,18 @@ explicitly for the full local learning stack.
 
 ### 5. Extend deployment automation separately
 
-The CD workflow will gain these deployment choices:
+The existing application CD workflow remains unchanged. A separate
+`.github/workflows/cd-observability.yml` workflow provides boolean checkbox inputs for:
 
 ```text
-observability
-otel-collector
-prometheus
-jaeger
-grafana
+deploy_all
+deploy_jaeger
+deploy_otel_collector
+deploy_prometheus
+deploy_grafana
 ```
 
-The `observability` scope will deploy in this order:
+The `deploy_all` checkbox deploys in this order:
 
 1. `jaeger`
 2. `otel-collector`
