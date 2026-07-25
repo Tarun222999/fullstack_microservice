@@ -77,7 +77,7 @@ func Start(ctx context.Context, serviceName string) (ShutdownFunc, error) {
 }
 
 func isEnabled() bool {
-	return strings.EqualFold(envOrDefault("OTEL_ENABLED", "true"), "true")
+	return strings.EqualFold(envOrDefault("OTEL_ENABLED", "false"), "true")
 }
 
 func metricInterval() time.Duration {
