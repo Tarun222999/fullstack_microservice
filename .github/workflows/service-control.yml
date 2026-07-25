@@ -89,12 +89,6 @@ jobs:
           printf 'Railway region: %s\n' "$RAILWAY_REGION"
           printf 'Operation: %s\n' "$OPERATION"
 
-      - name: Link Railway project
-        run: |
-          railway link \
-            --project "$RAILWAY_PROJECT_ID" \
-            --environment "$RAILWAY_ENVIRONMENT_NAME"
-
       - name: Control selected services
         shell: bash
         run: |
