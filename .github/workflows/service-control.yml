@@ -1,0 +1,162 @@
+name: Service Control
+
+on:
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: Select the service operation
+        required: true
+        type: choice
+        options:
+          - start-all
+          - stop-all
+          - start-applications
+          - stop-applications
+          - start-monitoring
+          - stop-monitoring
+          - start-data-services
+          - stop-data-services
+      region:
+        description: Must match Railway Settings > Deploy > Regions
+        required: true
+        default: southeast-asia
+        type: choice
+        options:
+          - southeast-asia
+          - us-west
+          - us-east
+          - eu-west
+      confirm_stop:
+        description: Required for every stop operation
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-railway-operations
+  cancel-in-progress: false
+
+jobs:
+  control-production:
+    name: Control Production Services
+    runs-on: ubuntu-latest
+    environment:
+      name: 'fearless-creation / production'
+
+    env:
+      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+      RAILWAY_PROJECT_ID: ${{ vars.RAILWAY_PROJECT_ID }}
+      RAILWAY_PROJECT_NAME: ${{ vars.RAILWAY_PROJECT_NAME }}
+      RAILWAY_ENVIRONMENT_NAME: production
+      RAILWAY_REGION: ${{ inputs.region }}
+      OPERATION: ${{ inputs.operation }}
+      CONFIRM_STOP: ${{ inputs.confirm_stop }}
+
+    steps:
+      - name: Guard main branch
+        if: ${{ github.ref_name != 'main' }}
+        run: |
+          echo "Production service controls are only allowed from the main branch."
+          exit 1
+
+      - name: Require confirmation for stop operations
+        run: |
+          if [[ "$OPERATION" == stop-* && "$CONFIRM_STOP" != "true" ]]; then
+            echo "Stop operations require the confirmation checkbox."
+            exit 1
+          fi
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Railway CLI
+        run: npm install --global @railway/cli@5.27.1
+
+      - name: Verify Railway configuration
+        run: |
+          test -n "$RAILWAY_TOKEN" || (echo "Missing RAILWAY_TOKEN" && exit 1)
+          test -n "$RAILWAY_PROJECT_ID" || (echo "Missing RAILWAY_PROJECT_ID" && exit 1)
+          test -n "$RAILWAY_PROJECT_NAME" || (echo "Missing RAILWAY_PROJECT_NAME" && exit 1)
+          test -n "$RAILWAY_REGION" || (echo "Missing Railway region" && exit 1)
+
+          printf 'Railway project: %s (%s)\n' "$RAILWAY_PROJECT_NAME" "$RAILWAY_PROJECT_ID"
+          printf 'Railway environment: %s\n' "$RAILWAY_ENVIRONMENT_NAME"
+          printf 'Railway region: %s\n' "$RAILWAY_REGION"
+          printf 'Operation: %s\n' "$OPERATION"
+
+      - name: Link Railway project
+        run: |
+          railway link \
+            --project "$RAILWAY_PROJECT_ID" \
+            --environment "$RAILWAY_ENVIRONMENT_NAME"
+
+      - name: Control selected services
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          data_start=("mysql" "postgres" "mongo" "redis" "rabbitmq")
+          data_stop=("rabbitmq" "redis" "mongo" "postgres" "mysql")
+          monitoring_start=("jaeger" "otel-collector" "prometheus" "grafana")
+          monitoring_stop=("grafana" "prometheus" "otel-collector" "jaeger")
+          applications_start=("auth-service" "user-service" "chat-service" "email-service" "gateway-service")
+          applications_stop=("gateway-service" "email-service" "chat-service" "user-service" "auth-service")
+
+          scale_services() {
+            local replicas="$1"
+            shift
+
+            for service in "$@"; do
+              printf '\nScaling %s to %s replica(s) in %s...\n' "$service" "$replicas" "$RAILWAY_REGION"
+              railway scale \
+                "$RAILWAY_REGION=$replicas" \
+                --service "$service" \
+                --environment "$RAILWAY_ENVIRONMENT_NAME"
+            done
+          }
+
+          case "$OPERATION" in
+            start-all)
+              scale_services 1 "${data_start[@]}"
+              echo "Waiting for data services to initialize..."
+              sleep 30
+              scale_services 1 "${monitoring_start[@]}"
+              echo "Waiting for monitoring services to initialize..."
+              sleep 20
+              scale_services 1 "${applications_start[@]}"
+              ;;
+            stop-all)
+              scale_services 0 "${applications_stop[@]}"
+              scale_services 0 "${monitoring_stop[@]}"
+              scale_services 0 "${data_stop[@]}"
+              ;;
+            start-applications)
+              scale_services 1 "${applications_start[@]}"
+              ;;
+            stop-applications)
+              scale_services 0 "${applications_stop[@]}"
+              ;;
+            start-monitoring)
+              scale_services 1 "${monitoring_start[@]}"
+              ;;
+            stop-monitoring)
+              scale_services 0 "${monitoring_stop[@]}"
+              ;;
+            start-data-services)
+              scale_services 1 "${data_start[@]}"
+              ;;
+            stop-data-services)
+              scale_services 0 "${data_stop[@]}"
+              ;;
+            *)
+              echo "Unsupported operation: $OPERATION"
+              exit 1
+              ;;
+          esac
+
+          echo "Completed operation: $OPERATION"
