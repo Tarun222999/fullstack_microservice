@@ -112,9 +112,11 @@ const publishOutboxRow = async (row: OutboxEvent) => {
       'messaging.destination.name': row.exchangeName,
       'messaging.rabbitmq.routing_key': row.routingKey,
       'event.type': row.eventType,
-      'event.id': metadata?.eventId ?? row.id,
+      'event.id': row.id,
     },
     () => {
+      const traceCarrier = captureTraceCarrier();
+      eventWithId.metadata.traceCarrier = traceCarrier;
       const success = ch.publish(
         row.exchangeName,
         row.routingKey,
@@ -122,7 +124,7 @@ const publishOutboxRow = async (row: OutboxEvent) => {
         {
           contentType: 'application/json',
           persistent: true,
-          headers: metadata?.traceCarrier,
+          headers: traceCarrier,
         },
       );
       if (!success) {
@@ -262,12 +264,14 @@ export const publishUserCreatedEvent = async (payload: UserCreatedPayload) => {
     return;
   }
 
-  const traceCarrier = captureTraceCarrier();
   const event: UserCreatedEvent = {
     type: USER_CREATED_ROUTING_KEY,
     payload,
     occuredAt: new Date().toISOString(),
-    metadata: { version: 1, eventId: crypto.randomUUID(), traceCarrier } as Record<string, unknown>,
+    metadata: { version: 1, eventId: crypto.randomUUID(), traceCarrier: {} } as Record<
+      string,
+      unknown
+    >,
   };
 
   try {
@@ -281,6 +285,8 @@ export const publishUserCreatedEvent = async (payload: UserCreatedPayload) => {
         'event.id': (event.metadata as { eventId: string }).eventId,
       },
       () => {
+        const traceCarrier = captureTraceCarrier();
+        (event.metadata as Record<string, unknown>).traceCarrier = traceCarrier;
         const success = ch.publish(
           USER_EVENTS_EXCHANGE,
           USER_CREATED_ROUTING_KEY,

@@ -307,9 +307,9 @@ services:
     container_name: chatapp-otel-collector
     command: ['--config=/etc/otelcol-contrib/config.yaml']
     ports:
-      - '${OTEL_COLLECTOR_GRPC_PORT:-4317}:4317'
-      - '${OTEL_COLLECTOR_HTTP_PORT:-4318}:4318'
-      - '${OTEL_COLLECTOR_PROMETHEUS_PORT:-9464}:9464'
+      - '127.0.0.1:${OTEL_COLLECTOR_GRPC_PORT:-4317}:4317'
+      - '127.0.0.1:${OTEL_COLLECTOR_HTTP_PORT:-4318}:4318'
+      - '127.0.0.1:${OTEL_COLLECTOR_PROMETHEUS_PORT:-9464}:9464'
     volumes:
       - ./monitoring/otel-collector/config.yaml:/etc/otelcol-contrib/config.yaml:ro
     depends_on:
@@ -325,7 +325,7 @@ services:
       - '--config.file=/etc/prometheus/prometheus.yaml'
       - '--storage.tsdb.path=/prometheus'
     ports:
-      - '${PROMETHEUS_PORT:-9090}:9090'
+      - '127.0.0.1:${PROMETHEUS_PORT:-9090}:9090'
     volumes:
       - ./monitoring/prometheus/prometheus.yaml:/etc/prometheus/prometheus.yaml:ro
       - prometheus-data:/prometheus
@@ -339,7 +339,7 @@ services:
     image: jaegertracing/jaeger:2.8.0
     container_name: chatapp-jaeger
     ports:
-      - '${JAEGER_UI_PORT:-16686}:16686'
+      - '127.0.0.1:${JAEGER_UI_PORT:-16686}:16686'
     networks:
       - chatapp-network
     restart: unless-stopped
@@ -349,7 +349,7 @@ services:
     container_name: chatapp-loki
     command: ['-config.file=/etc/loki/loki.yaml']
     ports:
-      - '${LOKI_PORT:-3100}:3100'
+      - '127.0.0.1:${LOKI_PORT:-3100}:3100'
     volumes:
       - ./monitoring/loki/loki.yaml:/etc/loki/loki.yaml:ro
       - loki-data:/loki
@@ -366,7 +366,7 @@ services:
       - '--storage.path=/var/lib/alloy/data'
       - '/etc/alloy/config.alloy'
     ports:
-      - '${ALLOY_PORT:-12345}:12345'
+      - '127.0.0.1:${ALLOY_PORT:-12345}:12345'
     volumes:
       - ./monitoring/alloy/config.alloy:/etc/alloy/config.alloy:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
@@ -381,10 +381,10 @@ services:
     image: grafana/grafana:12.0.2
     container_name: chatapp-grafana
     ports:
-      - '${GRAFANA_PORT:-3000}:3000'
+      - '127.0.0.1:${GRAFANA_PORT:-3000}:3000'
     environment:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD is required}
     volumes:
       - grafana-data:/var/lib/grafana
       - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro

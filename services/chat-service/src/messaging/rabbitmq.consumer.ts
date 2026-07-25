@@ -106,7 +106,11 @@ export const startConsumers = async () => {
             ch.ack(message);
           } catch (error) {
             recordBusinessSpanError(span, error);
-            await markFailedEvent(eventId, error);
+            try {
+              await markFailedEvent(eventId, error);
+            } catch (markError) {
+              logger.error({ err: markError, eventId }, 'consumer.mark_failed_error');
+            }
             logger.error({ err: error, eventId }, 'consumer.failed');
             ch.nack(message, false, false);
           }

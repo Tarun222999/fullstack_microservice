@@ -16,16 +16,30 @@ const main = async () => {
       logger.info({ port }, 'Gateway service is running');
     });
 
+    let shutdownStarted = false;
     const shutdown = () => {
+      if (shutdownStarted) {
+        return;
+      }
+      shutdownStarted = true;
       logger.info('Shutting down gateway service');
 
-      Promise.all([shutdownGatewayTelemetry()])
-        .catch((error: unknown) => {
-          logger.error({ error }, 'error during shutdown tasks');
-        })
-        .finally(() => {
-          server.close(() => process.exit(0));
-        });
+      const forceExitTimer = setTimeout(() => {
+        logger.error('Forced gateway shutdown after timeout');
+        process.exit(1);
+      }, 10_000);
+      forceExitTimer.unref();
+
+      server.close(() => {
+        shutdownGatewayTelemetry()
+          .catch((error: unknown) => {
+            logger.error({ error }, 'error during shutdown tasks');
+          })
+          .finally(() => {
+            clearTimeout(forceExitTimer);
+            process.exit(0);
+          });
+      });
     };
 
     process.on('SIGINT', shutdown);

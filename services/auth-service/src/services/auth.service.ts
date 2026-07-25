@@ -11,7 +11,7 @@ import {
   verifyPassword,
   verifyRefreshToken,
 } from '@/utils/token';
-import { captureTraceCarrier, HttpError } from '@chatapp/common';
+import { captureTraceCarrier, HttpError, type AuthUserRegisteredPayload } from '@chatapp/common';
 import { Op, Transaction } from 'sequelize';
 import { AUTH_EVENT_EXCHANGE, AUTH_USER_REGISTERED_ROUTING_KEY } from '@chatapp/common';
 
@@ -26,6 +26,9 @@ export const register = async (input: RegisterInput): Promise<AuthResponse> => {
   }
 
   const transaction = await sequelize.transaction();
+  let userData: AuthUserRegisteredPayload | undefined;
+  let response: AuthResponse | undefined;
+  let committed = false;
 
   try {
     const passwordHash = await hashPassword(input.password);
@@ -39,7 +42,7 @@ export const register = async (input: RegisterInput): Promise<AuthResponse> => {
     );
     const refreshTokenRecord = await createRefreshToken(user.id, transaction);
 
-    const userData = {
+    userData = {
       id: user.id,
       email: user.email,
       displayName: user.displayName,
@@ -72,6 +75,7 @@ export const register = async (input: RegisterInput): Promise<AuthResponse> => {
     }
 
     await transaction.commit();
+    committed = true;
 
     const accessToken = signAccessToken({ sub: user.id, email: user.email });
     const refreshToken = signRefreshToken({
@@ -79,18 +83,25 @@ export const register = async (input: RegisterInput): Promise<AuthResponse> => {
       tokenId: refreshTokenRecord.id,
     });
 
-    if (!env.OUTBOX_ENABLED) {
-      await publishingUserRegistered(userData);
-    }
-    return {
+    response = {
       accessToken,
       refreshToken,
       user: userData,
     };
   } catch (error) {
-    await transaction.rollback();
+    if (!committed) {
+      await transaction.rollback();
+    }
     throw error;
   }
+
+  if (!env.OUTBOX_ENABLED && userData) {
+    await publishingUserRegistered(userData).catch((error: unknown) => {
+      logger.error({ err: error, userId: userData.id }, 'Failed to publish user registered event');
+    });
+  }
+
+  return response as AuthResponse;
 };
 
 export const login = async (input: LoginInput): Promise<AuthTokens> => {

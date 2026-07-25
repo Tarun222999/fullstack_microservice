@@ -34,13 +34,18 @@ func main() {
 		Addr:              addr,
 		Handler:           api.Routes(),
 		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       15 * time.Second,
+		WriteTimeout:      15 * time.Second,
+		IdleTimeout:       60 * time.Second,
 	}
 
 	shutdownCtx, stop := signal.NotifyContext(ctx, syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
 	log.Printf("email-service listening on %s", addr)
+	shutdownDone := make(chan struct{})
 	go func() {
+		defer close(shutdownDone)
 		<-shutdownCtx.Done()
 		log.Print("shutting down email-service")
 
@@ -58,4 +63,5 @@ func main() {
 	if err := httpServer.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		log.Fatalf("email-service stopped: %v", err)
 	}
+	<-shutdownDone
 }

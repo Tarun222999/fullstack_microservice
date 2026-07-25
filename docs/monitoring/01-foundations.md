@@ -109,9 +109,9 @@ Answer these before moving on:
 
 - What is the difference between monitoring and observability?
   monitoring tells us when something is wrong by tracking known health signals
-  observility helps us understand why something is wrong by using metrics,logs,tracing
+  Observability helps us understand why something is wrong by using metrics, logs, traces
 - What are the three main telemetry signals?
-  traces,logs,metrics
+  traces, logs, metrics
 - Which signal is best for dashboards?
   metrics
 - Which signal is best for debugging a specific request?

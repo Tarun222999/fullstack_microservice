@@ -32,7 +32,7 @@ Node services -> OpenTelemetry JS -> otel-collector -> Prometheus
 email-service -> OpenTelemetry Go -> otel-collector -> Jaeger
 email-service -> OpenTelemetry Go -> otel-collector -> Prometheus
 
-container logs -> Loki -> Grafana
+container logs -> Grafana Alloy -> Loki -> Grafana
 
 Grafana -> Prometheus
 Grafana -> Loki
@@ -55,7 +55,7 @@ Expected result:
 - Prometheus UI opens locally.
 - Jaeger UI opens locally.
 - Loki is reachable.
-- No application code is instrumented yet.
+- Application services are already instrumented as later phases were completed.
 
 ## Phase 2: Instrument One Node Service
 
@@ -150,7 +150,7 @@ Expected result:
 Start with the chat invite email flow:
 
 ```text
-gateway-service -> email-service -> Resend API
+gateway-service -> chat-service -> email-service -> Resend API
 ```
 
 Why this flow is good for learning:

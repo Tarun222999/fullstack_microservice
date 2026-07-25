@@ -72,9 +72,11 @@ const publishOutboxRow = async (row: OutboxEvent) => {
       'messaging.destination.name': row.exchangeName,
       'messaging.rabbitmq.routing_key': row.routingKey,
       'event.type': row.eventType,
-      'event.id': metadata?.eventId ?? row.id,
+      'event.id': row.id,
     },
     () => {
+      const traceCarrier = captureTraceCarrier();
+      eventWithId.metadata.traceCarrier = traceCarrier;
       const published = ch.publish(
         row.exchangeName,
         row.routingKey,
@@ -82,7 +84,7 @@ const publishOutboxRow = async (row: OutboxEvent) => {
         {
           contentType: 'application/json',
           persistent: true,
-          headers: metadata?.traceCarrier,
+          headers: traceCarrier,
         },
       );
       if (!published) {
@@ -204,13 +206,11 @@ export const publishingUserRegistered = async (payload: AuthUserRegisteredPayloa
     return;
   }
 
-  const traceCarrier = captureTraceCarrier();
-
   const event = {
     type: AUTH_USER_REGISTERED_ROUTING_KEY,
     payload,
     occuredAt: new Date().toISOString(),
-    metadata: { version: 1, eventId: crypto.randomUUID(), traceCarrier },
+    metadata: { version: 1, eventId: crypto.randomUUID(), traceCarrier: {} as TraceCarrier },
   };
 
   await runWithBusinessSpan(
@@ -223,6 +223,8 @@ export const publishingUserRegistered = async (payload: AuthUserRegisteredPayloa
       'event.id': event.metadata.eventId,
     },
     () => {
+      const traceCarrier = captureTraceCarrier();
+      event.metadata.traceCarrier = traceCarrier;
       const published = channel?.publish(
         AUTH_EVENT_EXCHANGE,
         AUTH_USER_REGISTERED_ROUTING_KEY,

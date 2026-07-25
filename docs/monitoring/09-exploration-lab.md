@@ -27,8 +27,8 @@ Open the tools:
 
 Grafana login:
 
-- Username: `admin`
-- Password: `admin`
+- Username: provided by `GRAFANA_ADMIN_USER` in your environment.
+- Password: provided by the required `GRAFANA_ADMIN_PASSWORD` environment variable.
 
 Generate real traffic before exploring:
 

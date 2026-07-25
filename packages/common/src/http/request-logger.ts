@@ -25,8 +25,14 @@ export const createRequestLogger = ({
 
     const start = process.hrtime.bigint();
     const spanContext = trace.getSpan(context.active())?.spanContext();
+    let completed = false;
 
-    res.on('finish', () => {
+    const logCompletion = () => {
+      if (completed) {
+        return;
+      }
+      completed = true;
+
       const durationMs = Number(process.hrtime.bigint() - start) / 1_000_000;
 
       logger.info(
@@ -41,7 +47,10 @@ export const createRequestLogger = ({
         },
         'http.request.completed',
       );
-    });
+    };
+
+    res.on('finish', logCompletion);
+    res.on('close', logCompletion);
 
     next();
   };

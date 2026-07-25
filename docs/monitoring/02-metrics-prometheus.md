@@ -127,6 +127,6 @@ That is where logs and traces help.
 - What is a gauge?
   can go down and up
 - Why are histograms useful for latency?
-  they can tell which requests fall under which leatency interval
+  they group observations into latency buckets and support percentile estimates
 - Why does Prometheus work well for dashboards?
 - Which metrics would you want first for `email-service`?

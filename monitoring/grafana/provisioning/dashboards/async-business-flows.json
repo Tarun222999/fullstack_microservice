@@ -15,7 +15,7 @@
       }
     ]
   },
-  "editable": true,
+  "editable": false,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
   "id": null,
@@ -108,7 +108,7 @@
           "refId": "A"
         }
       ],
-      "title": "Async Consumer Success Rate",
+      "title": "Async Events Processed Rate",
       "type": "timeseries"
     },
     {

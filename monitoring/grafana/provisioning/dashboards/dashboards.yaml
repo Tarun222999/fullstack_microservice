@@ -6,7 +6,7 @@ providers:
     folder: Chat App
     type: file
     disableDeletion: false
-    editable: true
+    editable: false
     updateIntervalSeconds: 30
     options:
       path: /etc/grafana/provisioning/dashboards

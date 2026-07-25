@@ -24,14 +24,22 @@ export type TraceCarrier = Record<string, string>;
 
 const isTelemetryEnabled = () => (process.env.OTEL_ENABLED ?? '').toLowerCase() === 'true';
 
-const tracesUrl = () => {
-  const endpoint = process.env.OTEL_EXPORTER_OTLP_ENDPOINT ?? 'http://localhost:4318';
-  return `${endpoint.replace(/\/$/, '')}/v1/traces`;
+const metricExportIntervalMillis = () => {
+  const interval = Number(process.env.OTEL_METRIC_EXPORT_INTERVAL_MS ?? 5000);
+  return Number.isFinite(interval) && interval > 0 ? interval : 5000;
 };
 
-const metricsUrl = () => {
-  const endpoint = process.env.OTEL_EXPORTER_OTLP_ENDPOINT ?? 'http://localhost:4318';
-  return `${endpoint.replace(/\/$/, '')}/v1/metrics`;
+const shouldIgnoreIncomingRequest = (url?: string) => {
+  if (!url) {
+    return false;
+  }
+
+  try {
+    const pathname = new URL(url, 'http://localhost').pathname;
+    return pathname === '/health' || pathname === '/healthz' || pathname.endsWith('/health');
+  } catch {
+    return false;
+  }
 };
 
 export const startNodeTelemetry = ({ serviceName }: NodeTelemetryOptions) => {
@@ -44,19 +52,19 @@ export const startNodeTelemetry = ({ serviceName }: NodeTelemetryOptions) => {
       resource: resourceFromAttributes({
         [ATTR_SERVICE_NAME]: process.env.OTEL_SERVICE_NAME ?? serviceName,
       }),
-      traceExporter: new OTLPTraceExporter({
-        url: tracesUrl(),
-      }),
+      traceExporter: new OTLPTraceExporter(),
       metricReader: new PeriodicExportingMetricReader({
-        exporter: new OTLPMetricExporter({
-          url: metricsUrl(),
-        }),
-        exportIntervalMillis: Number(process.env.OTEL_METRIC_EXPORT_INTERVAL_MS ?? 5000),
+        exporter: new OTLPMetricExporter(),
+        exportIntervalMillis: metricExportIntervalMillis(),
       }),
       instrumentations: [
         getNodeAutoInstrumentations({
           '@opentelemetry/instrumentation-http': {
-            ignoreIncomingRequestHook: (request) => request.url === '/health',
+            ignoreIncomingRequestHook: (request) => shouldIgnoreIncomingRequest(request.url),
+          },
+          '@opentelemetry/instrumentation-runtime-node': {
+            enabled: true,
+            monitoringPrecision: metricExportIntervalMillis(),
           },
         }),
       ],

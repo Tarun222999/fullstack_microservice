@@ -13,9 +13,24 @@ datasources:
     type: jaeger
     access: proxy
     url: http://jaeger:16686
+    jsonData:
+      tracesToLogsV2:
+        datasourceUid: loki
+        spanStartTimeShift: '-5m'
+        spanEndTimeShift: '5m'
+        filterByTraceID: true
+        filterBySpanID: false
+        customQuery: true
+        query: '{service=~"gateway-service|auth-service|user-service|chat-service|email-service"} |= "${__trace.traceId}"'
 
   - name: Loki
     uid: loki
     type: loki
     access: proxy
     url: http://loki:3100
+    jsonData:
+      derivedFields:
+        - name: TraceID
+          matcherRegex: '"trace_id":"([a-f0-9]{32})"'
+          datasourceUid: jaeger
+          url: '${__value.raw}'

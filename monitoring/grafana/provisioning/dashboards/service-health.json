@@ -15,7 +15,7 @@
       }
     ]
   },
-  "editable": true,
+  "editable": false,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
   "id": null,
@@ -104,7 +104,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (exported_job) (\n  rate(http_server_duration_milliseconds_count[5m])\n)",
+          "expr": "sum by (exported_job) (\n  rate(http_server_duration_milliseconds_count[5m])\n)\nor\nsum by (exported_job) (\n  rate(http_server_request_duration_seconds_count[5m])\n)",
           "legendFormat": "{{exported_job}}",
           "range": true,
           "refId": "A"
@@ -199,8 +199,8 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (exported_job, http_status_code) (\n  rate(http_server_duration_milliseconds_count{http_status_code=~\"5..\"}[5m])\n)",
-          "legendFormat": "{{exported_job}} {{http_status_code}}",
+          "expr": "sum by (exported_job, http_status_code) (\n  rate(http_server_duration_milliseconds_count{http_status_code=~\"5..\"}[5m])\n)\nor\nsum by (exported_job, http_response_status_code) (\n  rate(http_server_request_duration_seconds_count{http_response_status_code=~\"5..\"}[5m])\n)",
+          "legendFormat": "{{exported_job}} {{http_status_code}}{{http_response_status_code}}",
           "range": true,
           "refId": "A"
         }
@@ -298,7 +298,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "histogram_quantile(\n  0.95,\n  sum by (exported_job, le) (\n    rate(http_server_duration_milliseconds_bucket[5m])\n  )\n)",
+          "expr": "histogram_quantile(\n  0.95,\n  sum by (exported_job, le) (\n    rate(http_server_duration_milliseconds_bucket[5m])\n  )\n)\nor\nhistogram_quantile(\n  0.95,\n  sum by (exported_job, le) (\n    rate(http_server_request_duration_seconds_bucket[5m])\n  )\n) * 1000",
           "legendFormat": "{{exported_job}} p95",
           "range": true,
           "refId": "A"
@@ -389,7 +389,7 @@
             "uid": "prometheus"
           },
           "editorMode": "code",
-          "expr": "sum by (exported_job) (\n  v8js_memory_heap_used_bytes{job=\"otel-collector\"}\n)",
+          "expr": "sum by (exported_job) (\n  process_runtime_nodejs_memory_heap_used_bytes{job=\"otel-collector\", exported_job=~\"gateway-service|auth-service|user-service|chat-service\"}\n)",
           "legendFormat": "{{exported_job}}",
           "range": true,
           "refId": "A"
