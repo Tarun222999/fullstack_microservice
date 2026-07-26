@@ -19,7 +19,7 @@ on:
       region:
         description: Must match Railway Settings > Deploy > Regions
         required: true
-        default: southeast-asia
+        default: eu-west
         type: choice
         options:
           - southeast-asia
@@ -107,11 +107,34 @@ jobs:
           applications_start=("auth-service" "user-service" "chat-service" "email-service" "gateway-service")
           applications_stop=("gateway-service" "email-service" "chat-service" "user-service" "auth-service")
 
+          declare -A previous_deployment_ids
+
+          latest_deployment_field() {
+            local service="$1"
+            local field="$2"
+
+            railway deployment list \
+              --service "$service" \
+              --environment "$RAILWAY_ENVIRONMENT_NAME" \
+              --limit 1 \
+              --json 2>/dev/null |
+              jq -r --arg field "$field" '
+                (if type == "array" then .[0]
+                 elif (.deployments? | type) == "array" then .deployments[0]
+                 else . end) as $deployment
+                | ($deployment[$field] // empty)
+              '
+          }
+
           scale_services() {
             local replicas="$1"
             shift
 
             for service in "$@"; do
+              if [[ "$replicas" == "1" ]]; then
+                previous_deployment_ids["$service"]="$(latest_deployment_field "$service" id || true)"
+              fi
+
               printf '\nScaling %s to %s replica(s) in %s...\n' "$service" "$replicas" "$RAILWAY_REGION"
               railway scale \
                 "$RAILWAY_REGION=$replicas" \
@@ -120,15 +143,56 @@ jobs:
             done
           }
 
+          wait_for_service() {
+            local service="$1"
+            local previous_id="${previous_deployment_ids[$service]:-}"
+            local attempt deployment_id status
+
+            printf 'Waiting for %s to become healthy...\n' "$service"
+
+            for attempt in {1..60}; do
+              deployment_id="$(latest_deployment_field "$service" id || true)"
+              status="$(latest_deployment_field "$service" status || true)"
+
+              printf '  attempt %s/60: deployment=%s status=%s\n' \
+                "$attempt" "${deployment_id:-unknown}" "${status:-unknown}"
+
+              if [[ "$status" == "SUCCESS" && ( "$deployment_id" != "$previous_id" || "$attempt" -ge 4 ) ]]; then
+                printf '%s is healthy.\n' "$service"
+                return 0
+              fi
+
+              if [[ "$deployment_id" != "$previous_id" && ( "$status" == "FAILED" || "$status" == "CRASHED" ) ]]; then
+                printf '%s deployment ended with status %s.\n' "$service" "$status"
+                return 1
+              fi
+
+              sleep 10
+            done
+
+            printf 'Timed out waiting for %s to become healthy.\n' "$service"
+            return 1
+          }
+
+          wait_for_services() {
+            for service in "$@"; do
+              wait_for_service "$service"
+            done
+          }
+
+          start_and_wait() {
+            scale_services 1 "$@"
+            wait_for_services "$@"
+          }
+
           case "$OPERATION" in
             start-all)
-              scale_services 1 "${data_start[@]}"
-              echo "Waiting for data services to initialize..."
-              sleep 30
-              scale_services 1 "${monitoring_start[@]}"
-              echo "Waiting for monitoring services to initialize..."
-              sleep 20
-              scale_services 1 "${applications_start[@]}"
+              start_and_wait "${data_start[@]}"
+              for service in "${monitoring_start[@]}"; do
+                start_and_wait "$service"
+              done
+              start_and_wait "${applications_start[@]:0:4}"
+              start_and_wait "${applications_start[4]}"
               ;;
             stop-all)
               scale_services 0 "${applications_stop[@]}"
@@ -136,19 +200,22 @@ jobs:
               scale_services 0 "${data_stop[@]}"
               ;;
             start-applications)
-              scale_services 1 "${applications_start[@]}"
+              start_and_wait "${applications_start[@]:0:4}"
+              start_and_wait "${applications_start[4]}"
               ;;
             stop-applications)
               scale_services 0 "${applications_stop[@]}"
               ;;
             start-monitoring)
-              scale_services 1 "${monitoring_start[@]}"
+              for service in "${monitoring_start[@]}"; do
+                start_and_wait "$service"
+              done
               ;;
             stop-monitoring)
               scale_services 0 "${monitoring_stop[@]}"
               ;;
             start-data-services)
-              scale_services 1 "${data_start[@]}"
+              start_and_wait "${data_start[@]}"
               ;;
             stop-data-services)
               scale_services 0 "${data_stop[@]}"

@@ -140,6 +140,11 @@ Start operations scale the selected services to one replica. Stop operations sca
 replicas and require the `confirm_stop` checkbox. The selected Railway region must match the
 service region configured under Railway **Settings > Deploy > Regions**.
 
+Start operations wait for Railway to report a successful deployment before advancing to dependent
+services. Data services start first, monitoring services start in dependency order, and the gateway
+starts last. A failed, crashed, or timed-out deployment fails the workflow instead of reporting a
+false successful start.
+
 The service groups are:
 
 - applications: `auth-service`, `user-service`, `chat-service`, `email-service`, and
