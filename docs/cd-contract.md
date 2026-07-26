@@ -145,7 +145,7 @@ The service groups are:
 - applications: `auth-service`, `user-service`, `chat-service`, `email-service`, and
   `gateway-service`
 - monitoring: `jaeger`, `otel-collector`, `prometheus`, and `grafana`
-- data: `mysql`, `postgres`, `mongo`, `redis`, and `rabbitmq`
+- data: `MySQL`, `Postgres`, `MongoDB`, `Redis`, and `rabbitmq`
 
 All three production workflows share the `production-railway-operations` concurrency group so a
 deployment and a scale operation cannot modify production simultaneously.
