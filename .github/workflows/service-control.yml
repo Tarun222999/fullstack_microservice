@@ -100,8 +100,8 @@ jobs:
         run: |
           set -euo pipefail
 
-          data_start=("mysql" "postgres" "mongo" "redis" "rabbitmq")
-          data_stop=("rabbitmq" "redis" "mongo" "postgres" "mysql")
+          data_start=("MySQL" "Postgres" "MongoDB" "Redis" "rabbitmq")
+          data_stop=("rabbitmq" "Redis" "MongoDB" "Postgres" "MySQL")
           monitoring_start=("jaeger" "otel-collector" "prometheus" "grafana")
           monitoring_stop=("grafana" "prometheus" "otel-collector" "jaeger")
           applications_start=("auth-service" "user-service" "chat-service" "email-service" "gateway-service")
