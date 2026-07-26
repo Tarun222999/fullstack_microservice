@@ -47,7 +47,7 @@ jobs:
       name: 'fearless-creation / production'
 
     env:
-      RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+      RAILWAY_API_TOKEN: ${{ secrets.RAILWAY_API_TOKEN }}
       RAILWAY_PROJECT_ID: ${{ vars.RAILWAY_PROJECT_ID }}
       RAILWAY_PROJECT_NAME: ${{ vars.RAILWAY_PROJECT_NAME }}
       RAILWAY_ENVIRONMENT_NAME: production
@@ -79,7 +79,7 @@ jobs:
 
       - name: Verify Railway configuration
         run: |
-          test -n "$RAILWAY_TOKEN" || (echo "Missing RAILWAY_TOKEN" && exit 1)
+          test -n "$RAILWAY_API_TOKEN" || (echo "Missing RAILWAY_API_TOKEN" && exit 1)
           test -n "$RAILWAY_PROJECT_ID" || (echo "Missing RAILWAY_PROJECT_ID" && exit 1)
           test -n "$RAILWAY_PROJECT_NAME" || (echo "Missing RAILWAY_PROJECT_NAME" && exit 1)
           test -n "$RAILWAY_REGION" || (echo "Missing Railway region" && exit 1)
@@ -88,6 +88,12 @@ jobs:
           printf 'Railway environment: %s\n' "$RAILWAY_ENVIRONMENT_NAME"
           printf 'Railway region: %s\n' "$RAILWAY_REGION"
           printf 'Operation: %s\n' "$OPERATION"
+
+      - name: Link Railway project
+        run: |
+          railway link \
+            --project "$RAILWAY_PROJECT_ID" \
+            --environment "$RAILWAY_ENVIRONMENT_NAME"
 
       - name: Control selected services
         shell: bash
