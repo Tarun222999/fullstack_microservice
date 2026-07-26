@@ -150,6 +150,11 @@ The service groups are:
 All three production workflows share the `production-railway-operations` concurrency group so a
 deployment and a scale operation cannot modify production simultaneously.
 
+The control workflow uses the `RAILWAY_API_TOKEN` GitHub environment secret because Railway scale
+operations modify service configuration. This must be an account or workspace token with access to
+the project. The two deployment workflows continue to use the narrower project-scoped
+`RAILWAY_TOKEN`.
+
 Stateful data is only retained when the corresponding Railway service uses persistent managed
 storage or a volume. Scaling an ephemeral stateful service to zero does not make its data durable.
 
