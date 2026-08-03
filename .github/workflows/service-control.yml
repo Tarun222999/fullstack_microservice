@@ -107,22 +107,17 @@ jobs:
           applications_start=("auth-service" "user-service" "chat-service" "email-service" "gateway-service")
           applications_stop=("gateway-service" "email-service" "chat-service" "user-service" "auth-service")
 
-          declare -A previous_deployment_ids
-
-          latest_deployment_field() {
+          service_readiness() {
             local service="$1"
-            local field="$2"
 
-            railway deployment list \
-              --service "$service" \
+            railway service list \
               --environment "$RAILWAY_ENVIRONMENT_NAME" \
-              --limit 1 \
               --json 2>/dev/null |
-              jq -r --arg field "$field" '
-                (if type == "array" then .[0]
-                 elif (.deployments? | type) == "array" then .deployments[0]
-                 else . end) as $deployment
-                | ($deployment[$field] // empty)
+              jq -r --arg service "$service" '
+                .[]
+                | select(.name == $service)
+                | [(.status // "UNKNOWN"), (.replicas.configured // 0), (.replicas.running // 0)]
+                | @tsv
               '
           }
 
@@ -131,10 +126,6 @@ jobs:
             shift
 
             for service in "$@"; do
-              if [[ "$replicas" == "1" ]]; then
-                previous_deployment_ids["$service"]="$(latest_deployment_field "$service" id || true)"
-              fi
-
               printf '\nScaling %s to %s replica(s) in %s...\n' "$service" "$replicas" "$RAILWAY_REGION"
               railway scale \
                 "$RAILWAY_REGION=$replicas" \
@@ -145,24 +136,25 @@ jobs:
 
           wait_for_service() {
             local service="$1"
-            local previous_id="${previous_deployment_ids[$service]:-}"
-            local attempt deployment_id status
+            local attempt status configured running
 
             printf 'Waiting for %s to become healthy...\n' "$service"
 
             for attempt in {1..60}; do
-              deployment_id="$(latest_deployment_field "$service" id || true)"
-              status="$(latest_deployment_field "$service" status || true)"
+              status=""
+              configured="0"
+              running="0"
+              IFS=$'\t' read -r status configured running < <(service_readiness "$service" || true) || true
 
-              printf '  attempt %s/60: deployment=%s status=%s\n' \
-                "$attempt" "${deployment_id:-unknown}" "${status:-unknown}"
+              printf '  attempt %s/60: status=%s replicas=%s/%s running\n' \
+                "$attempt" "${status:-unknown}" "$running" "$configured"
 
-              if [[ -n "$deployment_id" && "$deployment_id" != "$previous_id" && "$status" == "SUCCESS" ]]; then
+              if [[ "$status" == "SUCCESS" && "$configured" -ge 1 && "$running" -eq "$configured" ]]; then
                 printf '%s is healthy.\n' "$service"
                 return 0
               fi
 
-              if [[ "$deployment_id" != "$previous_id" && ( "$status" == "FAILED" || "$status" == "CRASHED" ) ]]; then
+              if [[ "$status" == "FAILED" || "$status" == "CRASHED" ]]; then
                 printf '%s deployment ended with status %s.\n' "$service" "$status"
                 return 1
               fi
