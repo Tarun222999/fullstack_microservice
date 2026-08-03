@@ -194,6 +194,44 @@ jobs:
               '
           }
 
+          active_deployment_summary() {
+            local service="$1"
+            local service_id="${railway_service_ids[$service]:-}"
+            local query variables response
+
+            if [[ -z "$service_id" ]]; then
+              echo "Could not resolve Railway service ID for $service." >&2
+              return 1
+            fi
+
+            query='query activeDeployment($input: DeploymentListInput!) {
+              deployments(input: $input, first: 1) {
+                edges { node { id status } }
+              }
+            }'
+            variables="$(
+              jq -cn \
+                --arg projectId "$RAILWAY_PROJECT_ID" \
+                --arg serviceId "$service_id" \
+                --arg environmentId "$railway_environment_id" \
+                '{
+                  input: {
+                    projectId: $projectId,
+                    serviceId: $serviceId,
+                    environmentId: $environmentId,
+                    status: {successfulOnly: true}
+                  }
+                }'
+            )"
+            response="$(railway_api "$query" "$variables")" || return 1
+
+            jq -r '
+              (.data.deployments.edges[0].node // {}) as $deployment
+              | [($deployment.id // ""), ($deployment.status // "")]
+              | @tsv
+            ' <<<"$response"
+          }
+
           print_service_logs() {
             local service="$1"
 
@@ -218,6 +256,65 @@ jobs:
                 --service "$service" \
                 --environment "$RAILWAY_ENVIRONMENT_NAME"
             done
+          }
+
+          wait_for_stopped_services() {
+            local -a remaining=("$@")
+            local -a still_active
+            local attempt service deployment_id status
+
+            for attempt in {1..5}; do
+              still_active=()
+              printf '\nVerifying stopped services (attempt %s/5)...\n' "$attempt"
+
+              for service in "${remaining[@]}"; do
+                deployment_id=""
+                status=""
+                if ! IFS=$'\t' read -r deployment_id status \
+                  < <(active_deployment_summary "$service"); then
+                  echo "Failed to verify the deployment state for $service."
+                  return 1
+                fi
+
+                if [[ -z "$deployment_id" ]]; then
+                  printf '  %s: stopped (no active successful deployment)\n' "$service"
+                  continue
+                fi
+
+                printf '  %s: still active (deployment=%s status=%s)\n' \
+                  "$service" "$deployment_id" "${status:-unknown}"
+                still_active+=("$service")
+              done
+
+              if (( ${#still_active[@]} == 0 )); then
+                echo "All selected Railway services are stopped."
+                return 0
+              fi
+
+              remaining=("${still_active[@]}")
+              if (( attempt < 5 )); then
+                sleep 10
+              fi
+            done
+
+            printf 'Timed out waiting for these Railway services to stop: %s\n' "${remaining[*]}"
+            return 1
+          }
+
+          stop_services() {
+            local service
+
+            for service in "$@"; do
+              printf '\nRemoving the active Railway deployment for %s...\n' "$service"
+              if ! railway down \
+                --service "$service" \
+                --environment "$RAILWAY_ENVIRONMENT_NAME" \
+                --yes; then
+                echo "The down command did not complete for $service; final-state verification will decide the result."
+              fi
+            done
+
+            wait_for_stopped_services "$@"
           }
 
           deploy_from_service_configuration() {
@@ -336,7 +433,7 @@ jobs:
             wait_for_services "$@"
           }
 
-          if [[ "$OPERATION" == start-* ]]; then
+          if [[ "$OPERATION" == start-* || "$OPERATION" == stop-* ]]; then
             load_deployment_targets
           fi
 
@@ -352,16 +449,17 @@ jobs:
               start_and_wait "${applications_start[4]}"
               ;;
             stop-all)
-              scale_services 0 "${applications_stop[@]}"
-              scale_services 0 "${monitoring_stop[@]}"
-              scale_services 0 "${data_stop[@]}"
+              stop_services \
+                "${applications_stop[@]}" \
+                "${monitoring_stop[@]}" \
+                "${data_stop[@]}"
               ;;
             start-applications)
               start_and_wait "${applications_start[@]:0:4}"
               start_and_wait "${applications_start[4]}"
               ;;
             stop-applications)
-              scale_services 0 "${applications_stop[@]}"
+              stop_services "${applications_stop[@]}"
               ;;
             start-monitoring)
               for service in "${monitoring_start[@]}"; do
@@ -369,13 +467,13 @@ jobs:
               done
               ;;
             stop-monitoring)
-              scale_services 0 "${monitoring_stop[@]}"
+              stop_services "${monitoring_stop[@]}"
               ;;
             start-data-services)
               start_and_wait "${data_start[@]}"
               ;;
             stop-data-services)
-              scale_services 0 "${data_stop[@]}"
+              stop_services "${data_stop[@]}"
               ;;
             *)
               echo "Unsupported operation: $OPERATION"
