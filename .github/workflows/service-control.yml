@@ -109,21 +109,34 @@ jobs:
 
           declare -A previous_deployment_ids
 
-          latest_deployment_field() {
+          latest_deployment_summary() {
             local service="$1"
-            local field="$2"
 
             railway deployment list \
               --service "$service" \
               --environment "$RAILWAY_ENVIRONMENT_NAME" \
               --limit 1 \
               --json 2>/dev/null |
-              jq -r --arg field "$field" '
+              jq -r '
                 (if type == "array" then .[0]
                  elif (.deployments? | type) == "array" then .deployments[0]
                  else . end) as $deployment
-                | ($deployment[$field] // empty)
+                | [($deployment.id // ""), ($deployment.status // "")]
+                | @tsv
               '
+          }
+
+          print_service_logs() {
+            local service="$1"
+
+            printf '\n::group::Railway deployment logs for %s\n' "$service"
+            railway logs \
+              --service "$service" \
+              --environment "$RAILWAY_ENVIRONMENT_NAME" \
+              --latest \
+              --deployment \
+              --lines 200 || echo "Unable to retrieve Railway deployment logs for $service."
+            echo "::endgroup::"
           }
 
           scale_services() {
@@ -131,15 +144,31 @@ jobs:
             shift
 
             for service in "$@"; do
-              if [[ "$replicas" == "1" ]]; then
-                previous_deployment_ids["$service"]="$(latest_deployment_field "$service" id || true)"
-              fi
-
               printf '\nScaling %s to %s replica(s) in %s...\n' "$service" "$replicas" "$RAILWAY_REGION"
               railway scale \
                 "$RAILWAY_REGION=$replicas" \
                 --service "$service" \
                 --environment "$RAILWAY_ENVIRONMENT_NAME"
+            done
+          }
+
+          redeploy_services() {
+            local service previous_id
+
+            for service in "$@"; do
+              previous_id=""
+              IFS=$'\t' read -r previous_id _ \
+                < <(latest_deployment_summary "$service" || true) || true
+              previous_deployment_ids["$service"]="$previous_id"
+
+              printf '\nRedeploying %s from its most recent Railway deployment...\n' "$service"
+              if ! railway redeploy \
+                --service "$service" \
+                --yes; then
+                echo "Failed to start a redeployment for $service."
+                print_service_logs "$service"
+                return 1
+              fi
             done
           }
 
@@ -151,19 +180,24 @@ jobs:
             printf 'Waiting for %s to become healthy...\n' "$service"
 
             for attempt in {1..60}; do
-              deployment_id="$(latest_deployment_field "$service" id || true)"
-              status="$(latest_deployment_field "$service" status || true)"
+              deployment_id=""
+              status=""
+              IFS=$'\t' read -r deployment_id status \
+                < <(latest_deployment_summary "$service" || true) || true
 
               printf '  attempt %s/60: deployment=%s status=%s\n' \
                 "$attempt" "${deployment_id:-unknown}" "${status:-unknown}"
 
-              if [[ "$status" == "SUCCESS" && ( "$deployment_id" != "$previous_id" || "$attempt" -ge 4 ) ]]; then
+              if [[ -n "$deployment_id" && "$deployment_id" != "$previous_id" && "$status" == "SUCCESS" ]]; then
                 printf '%s is healthy.\n' "$service"
                 return 0
               fi
 
-              if [[ "$deployment_id" != "$previous_id" && ( "$status" == "FAILED" || "$status" == "CRASHED" ) ]]; then
+              if [[ -n "$deployment_id" && "$deployment_id" != "$previous_id" && \
+                    ( "$status" == "FAILED" || "$status" == "CRASHED" || \
+                      "$status" == "REMOVED" || "$status" == "SKIPPED" ) ]]; then
                 printf '%s deployment ended with status %s.\n' "$service" "$status"
+                print_service_logs "$service"
                 return 1
               fi
 
@@ -171,6 +205,7 @@ jobs:
             done
 
             printf 'Timed out waiting for %s to become healthy.\n' "$service"
+            print_service_logs "$service"
             return 1
           }
 
@@ -182,12 +217,15 @@ jobs:
 
           start_and_wait() {
             scale_services 1 "$@"
+            redeploy_services "$@"
             wait_for_services "$@"
           }
 
           case "$OPERATION" in
             start-all)
               start_and_wait "${data_start[@]}"
+              echo "Data deployments succeeded; allowing databases and brokers to finish initialization..."
+              sleep 20
               for service in "${monitoring_start[@]}"; do
                 start_and_wait "$service"
               done

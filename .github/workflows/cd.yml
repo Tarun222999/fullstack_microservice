@@ -117,7 +117,7 @@ jobs:
           node-version: 22
 
       - name: Install Railway CLI
-        run: npm install --global @railway/cli@4.40.0
+        run: npm install --global @railway/cli@5.27.1
 
       - name: Verify Railway configuration
         run: |
@@ -125,12 +125,155 @@ jobs:
           test -n "$RAILWAY_PROJECT_ID" || (echo "Missing RAILWAY_PROJECT_ID" && exit 1)
           test -n "$RAILWAY_PROJECT_NAME" || (echo "Missing RAILWAY_PROJECT_NAME" && exit 1)
 
+      - name: Link Railway project
+        run: |
+          railway link \
+            --project "$RAILWAY_PROJECT_ID" \
+            --environment "$RAILWAY_ENVIRONMENT_NAME"
+
+      - name: Verify Railway service dependencies
+        shell: bash
+        env:
+          DEPLOY_SCOPE: ${{ inputs.deploy_scope }}
+        run: |
+          set -euo pipefail
+
+          latest_deployment_status() {
+            local service="$1"
+
+            railway deployment list \
+              --service "$service" \
+              --environment "$RAILWAY_ENVIRONMENT_NAME" \
+              --limit 1 \
+              --json 2>/dev/null |
+              jq -r '
+                (if type == "array" then .[0]
+                 elif (.deployments? | type) == "array" then .deployments[0]
+                 else . end) as $deployment
+                | ($deployment.status // empty)
+              '
+          }
+
+          case "$DEPLOY_SCOPE" in
+            all)
+              dependencies=("MySQL" "Postgres" "MongoDB" "Redis" "rabbitmq")
+              ;;
+            auth-service)
+              dependencies=("MySQL" "rabbitmq")
+              ;;
+            user-service)
+              dependencies=("Postgres" "rabbitmq")
+              ;;
+            chat-service)
+              dependencies=("MongoDB" "Redis" "rabbitmq")
+              ;;
+            email-service)
+              dependencies=()
+              ;;
+            gateway-service)
+              dependencies=("auth-service" "user-service" "chat-service" "email-service")
+              ;;
+            *)
+              echo "Unsupported deployment scope: $DEPLOY_SCOPE"
+              exit 1
+              ;;
+          esac
+
+          if [[ "${#dependencies[@]}" -eq 0 ]]; then
+            echo "No Railway service dependencies are required for $DEPLOY_SCOPE."
+            exit 0
+          fi
+
+          unavailable=()
+
+          for dependency in "${dependencies[@]}"; do
+            status="$(latest_deployment_status "$dependency" || true)"
+            printf 'Dependency %s: %s\n' "$dependency" "${status:-unknown}"
+
+            if [[ "$status" != "SUCCESS" ]]; then
+              unavailable+=("$dependency (${status:-unknown})")
+            fi
+          done
+
+          if [[ "${#unavailable[@]}" -gt 0 ]]; then
+            printf 'Deployment blocked because these Railway dependencies are unavailable: %s\n' \
+              "${unavailable[*]}"
+            echo "Run the Service Control workflow with the appropriate start operation, then retry CD."
+            exit 1
+          fi
+
       - name: Deploy selected service(s)
         shell: bash
         env:
           DEPLOY_SCOPE: ${{ inputs.deploy_scope }}
         run: |
           set -euo pipefail
+
+          latest_deployment_summary() {
+            local service="$1"
+
+            railway deployment list \
+              --service "$service" \
+              --environment "$RAILWAY_ENVIRONMENT_NAME" \
+              --limit 1 \
+              --json 2>/dev/null |
+              jq -r '
+                (if type == "array" then .[0]
+                 elif (.deployments? | type) == "array" then .deployments[0]
+                 else . end) as $deployment
+                | [($deployment.id // ""), ($deployment.status // "")]
+                | @tsv
+              '
+          }
+
+          print_service_logs() {
+            local service="$1"
+
+            printf '\n::group::Railway deployment logs for %s\n' "$service"
+            railway logs \
+              --service "$service" \
+              --environment "$RAILWAY_ENVIRONMENT_NAME" \
+              --latest \
+              --deployment \
+              --lines 200 || echo "Unable to retrieve Railway deployment logs for $service."
+            echo "::endgroup::"
+          }
+
+          wait_for_deployment() {
+            local service="$1"
+            local previous_id="$2"
+            local attempt deployment_id status
+
+            printf 'Waiting for the new %s deployment to become healthy...\n' "$service"
+
+            for attempt in {1..60}; do
+              deployment_id=""
+              status=""
+              IFS=$'\t' read -r deployment_id status < <(latest_deployment_summary "$service" || true) || true
+
+              printf '  attempt %s/60: deployment=%s status=%s\n' \
+                "$attempt" "${deployment_id:-unknown}" "${status:-unknown}"
+
+              if [[ -n "$deployment_id" && "$deployment_id" != "$previous_id" && "$status" == "SUCCESS" ]]; then
+                printf '%s deployed successfully.\n' "$service"
+                return 0
+              fi
+
+              if [[ -n "$deployment_id" && "$deployment_id" != "$previous_id" && \
+                    ( "$status" == "FAILED" || "$status" == "CRASHED" || \
+                      "$status" == "REMOVED" || "$status" == "SKIPPED" ) ]]; then
+                printf '%s deployment ended with status %s.\n' "$service" "$status"
+                print_service_logs "$service"
+                return 1
+              fi
+
+              sleep 10
+            done
+
+            printf 'Timed out waiting for %s to become healthy.\n' "$service"
+            print_service_logs "$service"
+            return 1
+          }
 
           if [[ "$DEPLOY_SCOPE" == "all" ]]; then
             services=("auth-service" "user-service" "chat-service" "email-service" "gateway-service")
@@ -144,17 +287,37 @@ jobs:
 
           for service in "${services[@]}"; do
             printf '\nDeploying %s...\n' "$service"
-            railway up \
+            previous_id=""
+            IFS=$'\t' read -r previous_id _ < <(latest_deployment_summary "$service" || true) || true
+
+            if ! railway up \
               --service "$service" \
               --environment "$RAILWAY_ENVIRONMENT_NAME" \
               --project "$RAILWAY_PROJECT_ID" \
-              --ci
+              --ci; then
+              echo "Railway failed while uploading or building $service."
+              print_service_logs "$service"
+              exit 1
+            fi
+
+            wait_for_deployment "$service" "$previous_id"
           done
 
       - name: Verify production health
+        if: ${{ inputs.deploy_scope == 'all' || inputs.deploy_scope == 'gateway-service' }}
+        shell: bash
         run: |
-          curl --fail --silent --show-error \
+          if ! curl --fail --silent --show-error \
             --retry 10 \
             --retry-delay 5 \
             --retry-all-errors \
-            "$GATEWAY_HEALTH_URL"
+            "$GATEWAY_HEALTH_URL"; then
+            echo "Gateway health verification failed."
+            railway logs \
+              --service gateway-service \
+              --environment "$RAILWAY_ENVIRONMENT_NAME" \
+              --latest \
+              --deployment \
+              --lines 200 || echo "Unable to retrieve Railway deployment logs for gateway-service."
+            exit 1
+          fi
