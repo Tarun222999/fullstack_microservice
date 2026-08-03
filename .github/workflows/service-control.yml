@@ -108,6 +108,74 @@ jobs:
           applications_stop=("gateway-service" "email-service" "chat-service" "user-service" "auth-service")
 
           declare -A previous_deployment_ids
+          declare -A railway_service_ids
+          railway_environment_id=""
+
+          railway_api() {
+            local query="$1"
+            local variables="$2"
+            local response
+
+            if ! response="$(
+              jq -cn \
+                --arg query "$query" \
+                --argjson variables "$variables" \
+                '{query: $query, variables: $variables}' |
+                curl \
+                  --silent \
+                  --show-error \
+                  --fail-with-body \
+                  --request POST \
+                  --url https://backboard.railway.com/graphql/v2 \
+                  --header "Authorization: Bearer $RAILWAY_API_TOKEN" \
+                  --header 'Content-Type: application/json' \
+                  --data-binary @-
+            )"; then
+              jq -r '.errors[]? | "Railway API error: \(.message)"' <<<"$response" >&2 || true
+              return 1
+            fi
+
+            if jq -e '.errors? | length > 0' <<<"$response" >/dev/null; then
+              jq -r '.errors[] | "Railway API error: \(.message)"' <<<"$response" >&2
+              return 1
+            fi
+
+            printf '%s\n' "$response"
+          }
+
+          load_deployment_targets() {
+            local query variables response service_name service_id
+
+            query='query projectDeploymentTargets($projectId: String!) {
+              project(id: $projectId) {
+                environments { edges { node { id name } } }
+                services { edges { node { id name } } }
+              }
+            }'
+            variables="$(jq -cn --arg projectId "$RAILWAY_PROJECT_ID" '{projectId: $projectId}')"
+            response="$(railway_api "$query" "$variables")" || return 1
+
+            railway_environment_id="$(
+              jq -r \
+                --arg environment "$RAILWAY_ENVIRONMENT_NAME" \
+                '.data.project.environments.edges[]
+                 | select(.node.name == $environment)
+                 | .node.id' <<<"$response" |
+                head -n 1
+            )"
+
+            if [[ -z "$railway_environment_id" ]]; then
+              echo "Could not resolve Railway environment ID for $RAILWAY_ENVIRONMENT_NAME."
+              return 1
+            fi
+
+            while IFS=$'\t' read -r service_name service_id; do
+              railway_service_ids["$service_name"]="$service_id"
+            done < <(
+              jq -r '.data.project.services.edges[] | [.node.name, .node.id] | @tsv' \
+                <<<"$response"
+            )
+          }
 
           latest_deployment_summary() {
             local service="$1"
@@ -152,20 +220,67 @@ jobs:
             done
           }
 
+          deploy_from_service_configuration() {
+            local service="$1"
+            local service_id="${railway_service_ids[$service]:-}"
+            local query variables response deployment_id
+
+            if [[ -z "$service_id" ]]; then
+              echo "Could not resolve Railway service ID for $service."
+              return 1
+            fi
+
+            query='mutation serviceInstanceDeployV2($serviceId: String!, $environmentId: String!) {
+              serviceInstanceDeployV2(serviceId: $serviceId, environmentId: $environmentId)
+            }'
+            variables="$(
+              jq -cn \
+                --arg serviceId "$service_id" \
+                --arg environmentId "$railway_environment_id" \
+                '{serviceId: $serviceId, environmentId: $environmentId}'
+            )"
+            response="$(railway_api "$query" "$variables")" || return 1
+            deployment_id="$(jq -r '.data.serviceInstanceDeployV2 // empty' <<<"$response")"
+
+            if [[ -z "$deployment_id" ]]; then
+              echo "Railway did not return a deployment ID for $service."
+              return 1
+            fi
+
+            printf 'Started fresh deployment %s for %s.\n' "$deployment_id" "$service"
+          }
+
           redeploy_services() {
-            local service previous_id
+            local service previous_id previous_status
 
             for service in "$@"; do
               previous_id=""
-              IFS=$'\t' read -r previous_id _ \
+              previous_status=""
+              IFS=$'\t' read -r previous_id previous_status \
                 < <(latest_deployment_summary "$service" || true) || true
               previous_deployment_ids["$service"]="$previous_id"
 
+              if [[ -z "$previous_id" || "$previous_status" == "REMOVED" ]]; then
+                printf '\n%s has no redeployable deployment; deploying from its Railway service configuration...\n' \
+                  "$service"
+                if ! deploy_from_service_configuration "$service"; then
+                  echo "Failed to start a fresh deployment for $service."
+                  print_service_logs "$service"
+                  return 1
+                fi
+                continue
+              fi
+
               printf '\nRedeploying %s from its most recent Railway deployment...\n' "$service"
-              if ! railway redeploy \
+              if railway redeploy \
                 --service "$service" \
                 --yes; then
-                echo "Failed to start a redeployment for $service."
+                continue
+              fi
+
+              echo "Redeploy was unavailable for $service; deploying from its Railway service configuration..."
+              if ! deploy_from_service_configuration "$service"; then
+                echo "Failed to start a fresh deployment for $service."
                 print_service_logs "$service"
                 return 1
               fi
@@ -220,6 +335,10 @@ jobs:
             redeploy_services "$@"
             wait_for_services "$@"
           }
+
+          if [[ "$OPERATION" == start-* ]]; then
+            load_deployment_targets
+          fi
 
           case "$OPERATION" in
             start-all)
