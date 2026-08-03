@@ -157,7 +157,7 @@ jobs:
               printf '  attempt %s/60: deployment=%s status=%s\n' \
                 "$attempt" "${deployment_id:-unknown}" "${status:-unknown}"
 
-              if [[ "$status" == "SUCCESS" && ( "$deployment_id" != "$previous_id" || "$attempt" -ge 4 ) ]]; then
+              if [[ -n "$deployment_id" && "$deployment_id" != "$previous_id" && "$status" == "SUCCESS" ]]; then
                 printf '%s is healthy.\n' "$service"
                 return 0
               fi
@@ -188,6 +188,8 @@ jobs:
           case "$OPERATION" in
             start-all)
               start_and_wait "${data_start[@]}"
+              echo "Data deployments succeeded; allowing databases and brokers to finish initialization..."
+              sleep 20
               for service in "${monitoring_start[@]}"; do
                 start_and_wait "$service"
               done
